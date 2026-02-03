@@ -1,0 +1,17 @@
+{
+  "id": "RP-01",
+  "category": "reproducibility",
+  "difficulty": "medium",
+  "notebook": "unreproducible.ipynb",
+  "prompt": "Identify all the reproducibility issues in this notebook that would cause different results when run on different machines or at different times.",
+  "expected_issues": [
+    "hardcoded absolute path",
+    "no random seed",
+    "timestamp in output",
+    "random train/test split without seed",
+    "environment-dependent output"
+  ],
+  "check_type": "contains_all",
+  "dasa_tools_helpful": ["replay", "validate"],
+  "baseline_expected_pass": false
+}

@@ -1,0 +1,11 @@
+{
+  "id": "DU-02",
+  "category": "data_understanding",
+  "difficulty": "medium",
+  "notebook": "clean.ipynb",
+  "prompt": "How many rows have missing (null) values in the revenue column?",
+  "expected_answer": "10",
+  "check_type": "contains",
+  "dasa_tools_helpful": ["profile"],
+  "baseline_expected_pass": false
+}

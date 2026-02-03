@@ -1,0 +1,14 @@
+{
+  "id": "SR-01",
+  "category": "state_recovery",
+  "difficulty": "medium",
+  "notebook": "messy.ipynb",
+  "prompt": "This notebook has cells executed out of order. Identify which cells have stale outputs and what the correct execution order should be.",
+  "expected_answer": {
+    "out_of_order_cells": [2, 4],
+    "correct_order": [0, 1, 3, 2, 4, 5]
+  },
+  "check_type": "json_match",
+  "dasa_tools_helpful": ["validate", "deps"],
+  "baseline_expected_pass": false
+}

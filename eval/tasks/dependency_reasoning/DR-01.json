@@ -1,0 +1,11 @@
+{
+  "id": "DR-01",
+  "category": "dependency_reasoning",
+  "difficulty": "medium",
+  "notebook": "complex.ipynb",
+  "prompt": "If I modify cell 4 (the one that creates revenue_clean), which other cells will be affected and need to be re-run?",
+  "expected_answer": [4, 5, 6, 7, 8, 9],
+  "check_type": "contains_all",
+  "dasa_tools_helpful": ["deps"],
+  "baseline_expected_pass": false
+}

@@ -1,0 +1,12 @@
+{
+  "id": "BF-01",
+  "category": "bug_fixing",
+  "difficulty": "easy",
+  "notebook": "broken.ipynb",
+  "prompt": "Fix the KeyError in cell 3. The code tries to access df['Revenue'] but the column name is different.",
+  "expected_fix": "Change 'Revenue' to 'revenue' (lowercase)",
+  "check_type": "cell_executes",
+  "target_cell": 2,
+  "dasa_tools_helpful": ["run", "profile"],
+  "baseline_expected_pass": true
+}

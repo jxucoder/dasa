@@ -1,0 +1,14 @@
+{
+  "id": "DR-02",
+  "category": "dependency_reasoning",
+  "difficulty": "medium",
+  "notebook": "complex.ipynb",
+  "prompt": "Which variables are defined in cell 5 and which cells depend on those variables?",
+  "expected_answer": {
+    "defines": ["profit", "margin", "is_profitable"],
+    "used_by_cells": [6, 7, 8, 9]
+  },
+  "check_type": "json_match",
+  "dasa_tools_helpful": ["deps"],
+  "baseline_expected_pass": false
+}

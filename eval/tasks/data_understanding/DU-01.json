@@ -1,0 +1,11 @@
+{
+  "id": "DU-01",
+  "category": "data_understanding",
+  "difficulty": "easy",
+  "notebook": "clean.ipynb",
+  "prompt": "What are all the column names in the sales DataFrame?",
+  "expected_answer": ["id", "date", "region", "revenue", "cost", "category", "email"],
+  "check_type": "contains_all",
+  "dasa_tools_helpful": ["profile"],
+  "baseline_expected_pass": true
+}
