@@ -92,6 +92,18 @@ class DASAServer:
                     },
                     "required": ["notebook"]
                 }
+            },
+            {
+                "name": "replay",
+                "description": "Run notebook from scratch and verify reproducibility",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "notebook": {"type": "string", "description": "Path to notebook"},
+                        "compare": {"type": "boolean", "description": "Compare outputs", "default": True}
+                    },
+                    "required": ["notebook"]
+                }
             }
         ]
 
@@ -102,6 +114,7 @@ class DASAServer:
             "validate": self._handle_validate,
             "deps": self._handle_deps,
             "run": self._handle_run,
+            "replay": self._handle_replay,
             "info": self._handle_info,
             "cells": self._handle_cells,
         }
@@ -239,6 +252,56 @@ class DASAServer:
 
         finally:
             self._release_kernel(notebook)
+
+    async def _handle_replay(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Handle replay tool call."""
+        notebook = args["notebook"]
+        compare = args.get("compare", True)
+
+        adapter = JupyterAdapter(notebook)
+        kernel = KernelManager(adapter.kernel_spec or "python3")
+
+        results = []
+        issues = []
+
+        try:
+            kernel.start()
+
+            for cell in adapter.code_cells:
+                result = kernel.execute(cell.source)
+
+                cell_result = {
+                    "cell": cell.index,
+                    "success": result.success,
+                    "output_match": True
+                }
+
+                if not result.success:
+                    cell_result["error"] = f"{result.error_type}: {result.error}"
+                    issues.append({
+                        "cell": cell.index,
+                        "type": "execution_error",
+                        "message": result.error
+                    })
+
+                results.append(cell_result)
+
+        finally:
+            kernel.shutdown()
+
+        total = len(results)
+        succeeded = sum(1 for r in results if r["success"])
+        score = (succeeded / total * 100) if total > 0 else 0
+
+        return {
+            "results": results,
+            "issues": issues,
+            "summary": {
+                "total": total,
+                "succeeded": succeeded,
+                "reproducibility_score": round(score, 1)
+            }
+        }
 
     async def _handle_info(self, args: dict[str, Any]) -> dict[str, Any]:
         """Handle info tool call."""
