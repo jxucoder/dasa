@@ -29,6 +29,7 @@ from dasa.cli.cells import cells
 from dasa.cli.outputs import outputs
 from dasa.cli.status import status
 from dasa.cli.cancel import cancel
+from dasa.cli.result import result
 
 # Sprint 7: Extensions
 from dasa.cli.mcp_serve import mcp_serve
@@ -67,6 +68,7 @@ app.command()(cells)
 app.command()(outputs)
 app.command()(status)
 app.command()(cancel)
+app.command()(result)
 
 # Extensions (Sprint 7)
 app.command("mcp-serve")(mcp_serve)

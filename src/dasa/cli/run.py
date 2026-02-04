@@ -2,8 +2,15 @@
 
 import ast
 import difflib
+import json
+import os
 import re
+import subprocess
+import sys
 import time
+import uuid
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 import typer
@@ -16,6 +23,13 @@ from dasa.notebook.base import Cell
 console = Console()
 
 
+def get_jobs_dir() -> Path:
+    """Get the jobs directory."""
+    jobs_dir = Path.home() / ".dasa" / "jobs"
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    return jobs_dir
+
+
 def run(
     notebook: str = typer.Argument(..., help="Path to notebook"),
     cell: Optional[int] = typer.Option(None, "--cell", "-c", help="Run specific cell"),
@@ -24,9 +38,100 @@ def run(
     all_cells: bool = typer.Option(False, "--all", help="Run all cells"),
     stale: bool = typer.Option(False, "--stale", help="Run stale cells only"),
     timeout: int = typer.Option(300, "--timeout", "-t", help="Timeout in seconds"),
+    async_run: bool = typer.Option(False, "--async", help="Run in background"),
     format_output: str = typer.Option("text", "--format", "-f", help="Output format"),
 ) -> None:
     """Execute notebook cells."""
+
+    if async_run:
+        _run_async(notebook, cell, from_cell, to_cell, all_cells, stale, timeout)
+        return
+
+    _run_sync(notebook, cell, from_cell, to_cell, all_cells, stale, timeout, format_output)
+
+
+def _run_async(
+    notebook: str,
+    cell: Optional[int],
+    from_cell: Optional[int],
+    to_cell: Optional[int],
+    all_cells: bool,
+    stale: bool,
+    timeout: int
+) -> None:
+    """Run cells in background."""
+
+    # Generate job ID
+    job_id = f"nb_{uuid.uuid4().hex[:8]}"
+    jobs_dir = get_jobs_dir()
+    job_file = jobs_dir / f"{job_id}.json"
+    log_file = jobs_dir / f"{job_id}.log"
+
+    # Build command for subprocess
+    cmd = [sys.executable, "-m", "dasa.cli.async_runner"]
+    cmd.extend(["--notebook", notebook])
+    cmd.extend(["--job-id", job_id])
+    cmd.extend(["--timeout", str(timeout)])
+
+    if cell is not None:
+        cmd.extend(["--cell", str(cell)])
+    if from_cell is not None:
+        cmd.extend(["--from-cell", str(from_cell)])
+    if to_cell is not None:
+        cmd.extend(["--to-cell", str(to_cell)])
+    if all_cells:
+        cmd.append("--all")
+    if stale:
+        cmd.append("--stale")
+
+    # Create initial job record
+    job_data = {
+        "id": job_id,
+        "notebook": notebook,
+        "cell": cell,
+        "status": "starting",
+        "started": datetime.now().isoformat(),
+        "pid": None,
+        "progress": "0%"
+    }
+    job_file.write_text(json.dumps(job_data, indent=2))
+
+    # Start background process
+    with open(log_file, "w") as log:
+        process = subprocess.Popen(
+            cmd,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True
+        )
+
+    # Update job with PID
+    job_data["pid"] = process.pid
+    job_data["status"] = "running"
+    job_file.write_text(json.dumps(job_data, indent=2))
+
+    console.print(f"\n[bold green]Started background job:[/bold green] {job_id}")
+    console.print(f"  Notebook: {notebook}")
+    if cell is not None:
+        console.print(f"  Cell: {cell}")
+    elif all_cells:
+        console.print(f"  Cells: all")
+    console.print(f"\n[dim]Check status:[/dim]  dasa status {job_id}")
+    console.print(f"[dim]View output:[/dim]   dasa result {job_id}")
+    console.print(f"[dim]Cancel:[/dim]        dasa cancel {job_id}")
+
+
+def _run_sync(
+    notebook: str,
+    cell: Optional[int],
+    from_cell: Optional[int],
+    to_cell: Optional[int],
+    all_cells: bool,
+    stale: bool,
+    timeout: int,
+    format_output: str
+) -> None:
+    """Run cells synchronously."""
 
     adapter = JupyterAdapter(notebook)
     kernel = KernelManager(adapter.kernel_spec or "python3")
@@ -125,7 +230,6 @@ def _show_execution_result(
     """Show detailed execution result."""
 
     if format_output == "json":
-        import json
         console.print(json.dumps({
             "cell": cell_index,
             "success": result.success,

@@ -85,10 +85,11 @@ def test_tool_has_input_schema():
         assert "type" in tool["inputSchema"]
 
 
-@pytest.mark.asyncio
-async def test_call_invalid_tool():
+def test_call_invalid_tool():
     """Test calling invalid tool returns error."""
+    import asyncio
+
     server = create_server()
 
-    result = await server.call_tool("nonexistent", {})
+    result = asyncio.run(server.call_tool("nonexistent", {}))
     assert "error" in result
