@@ -1,0 +1,11 @@
+{
+  "id": "VZ-02",
+  "category": "visualization",
+  "difficulty": "medium",
+  "notebook": "complex.ipynb",
+  "prompt": "Create a line chart showing monthly revenue trends over time using the monthly aggregation data.",
+  "expected_output": "A line chart showing revenue over months",
+  "check_type": "has_plot_output",
+  "dasa_tools_helpful": ["profile", "deps"],
+  "baseline_expected_pass": false
+}

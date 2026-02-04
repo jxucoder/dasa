@@ -1,0 +1,16 @@
+{
+  "id": "DU-03",
+  "category": "data_understanding",
+  "difficulty": "medium",
+  "notebook": "complex.ipynb",
+  "prompt": "What are the unique regions in the dataset and how many sales records are there for each?",
+  "expected_answer": {
+    "North": 50,
+    "South": 50,
+    "East": 50,
+    "West": 50
+  },
+  "check_type": "json_match",
+  "dasa_tools_helpful": ["profile"],
+  "baseline_expected_pass": false
+}

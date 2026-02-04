@@ -1,0 +1,12 @@
+{
+  "id": "BF-03",
+  "category": "bug_fixing",
+  "difficulty": "medium",
+  "notebook": "broken.ipynb",
+  "prompt": "Fix the TypeError in cell 5 where date subtraction fails. The date column needs to be converted to datetime first.",
+  "expected_fix": "Convert df['date'] to datetime using pd.to_datetime() before subtraction",
+  "check_type": "cell_executes",
+  "target_cell": 4,
+  "dasa_tools_helpful": ["run", "profile"],
+  "baseline_expected_pass": false
+}

@@ -1,0 +1,11 @@
+{
+  "id": "SR-02",
+  "category": "state_recovery",
+  "difficulty": "hard",
+  "notebook": "messy.ipynb",
+  "prompt": "Fix the notebook state by re-executing cells in the correct order. The notebook should filter data, then calculate profit, then show the mean profit of the filtered data.",
+  "expected_result": "Notebook executes without errors and mean profit is calculated on filtered data",
+  "check_type": "notebook_executes",
+  "dasa_tools_helpful": ["validate", "replay", "run"],
+  "baseline_expected_pass": false
+}

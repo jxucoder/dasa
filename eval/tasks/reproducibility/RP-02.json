@@ -1,0 +1,15 @@
+{
+  "id": "RP-02",
+  "category": "reproducibility",
+  "difficulty": "hard",
+  "notebook": "unreproducible.ipynb",
+  "prompt": "Fix the reproducibility issues in this notebook so it produces the same results every time it runs. Focus on fixing: random seeds, relative paths, and removing environment-dependent outputs.",
+  "expected_fixes": [
+    "Add np.random.seed() or random_state parameter",
+    "Change absolute path to relative path",
+    "Add random_state to train_test_split"
+  ],
+  "check_type": "notebook_reproducible",
+  "dasa_tools_helpful": ["replay"],
+  "baseline_expected_pass": false
+}

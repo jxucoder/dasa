@@ -1,0 +1,12 @@
+{
+  "id": "BF-02",
+  "category": "bug_fixing",
+  "difficulty": "easy",
+  "notebook": "broken.ipynb",
+  "prompt": "Fix the NameError in cell 4. The code references an undefined variable.",
+  "expected_fix": "Change 'data' to 'df'",
+  "check_type": "cell_executes",
+  "target_cell": 3,
+  "dasa_tools_helpful": ["run", "validate"],
+  "baseline_expected_pass": true
+}
