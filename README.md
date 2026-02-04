@@ -20,10 +20,7 @@ Data science notebooks have issues that coding agents can't handle with standard
 
 ## The Solution
 
-DASA provides two things:
-
-1. **Agent Skill** (`SKILL.md`) - Teaches agents notebook best practices
-2. **Diagnostic CLI** - Tools that answer the questions agents need answered
+DASA provides a **diagnostic CLI** - tools that answer the questions agents need answered:
 
 ```bash
 # Is this notebook's output trustworthy?
@@ -83,21 +80,25 @@ dasa deps my_analysis.ipynb
 
 ## For Coding Agents
 
-### Using the Agent Skill
+### Claude Code
 
-Copy the skill to your project:
+DASA includes a `CLAUDE.md` file that teaches Claude Code how to use the toolkit. When Claude Code sees this file in your project, it will automatically use DASA commands when working with notebooks.
 
 ```bash
-# For Cursor
-mkdir -p .cursor/skills
-cp $(python -c "import dasa; print(dasa.SKILL_PATH)") .cursor/skills/notebook.md
+# Install DASA in your project
+pip install dasa
 
-# For Claude Code
-mkdir -p .claude/skills
-cp $(python -c "import dasa; print(dasa.SKILL_PATH)") .claude/skills/notebook/SKILL.md
+# The CLAUDE.md file is included - Claude Code will find it automatically
 ```
 
-The agent will automatically use DASA tools when working with notebooks.
+### Other Agents (Cursor, Codex, etc.)
+
+Any agent that can run bash commands can use DASA. The commands are self-documenting:
+
+```bash
+dasa --help           # List all commands
+dasa profile --help   # Help for specific command
+```
 
 ### Agent Workflow
 
@@ -161,7 +162,7 @@ Output: matplotlib.Figure (bar chart with 4 bars)
 
 - **Jupyter Notebooks** (`.ipynb`) - Full support
 - **Google Colab** (`.ipynb`) - Full support
-- **Marimo** (`.py`) - Planned
+- **Marimo** (`.py`) - Supported
 
 ## Philosophy
 

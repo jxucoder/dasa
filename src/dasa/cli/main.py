@@ -23,16 +23,13 @@ from dasa.cli.edit import edit
 from dasa.cli.delete import delete
 from dasa.cli.move import move
 
-# Sprint 6: Info tools
+# Sprint 6: Info & Async tools
 from dasa.cli.info import info
 from dasa.cli.cells import cells
 from dasa.cli.outputs import outputs
 from dasa.cli.status import status
 from dasa.cli.cancel import cancel
 from dasa.cli.result import result
-
-# Sprint 7: Extensions
-from dasa.cli.mcp_serve import mcp_serve
 
 app = typer.Typer(
     name="dasa",
@@ -62,16 +59,13 @@ app.command()(edit)
 app.command()(delete)
 app.command()(move)
 
-# Info tools (Sprint 6)
+# Info & Async tools (Sprint 6)
 app.command()(info)
 app.command()(cells)
 app.command()(outputs)
 app.command()(status)
 app.command()(cancel)
 app.command()(result)
-
-# Extensions (Sprint 7)
-app.command("mcp-serve")(mcp_serve)
 
 
 @app.command()
