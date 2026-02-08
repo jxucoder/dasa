@@ -97,7 +97,7 @@ dasa/
 │   ├── PLAN.md             # Sprint roadmap
 │   ├── EVAL.md             # Evaluation framework
 │   └── sprints/            # Sprint details (00-05)
-└── docs/                   # Documentation and sprint details
+└── pyproject.toml
 ```
 
 ## Development Workflow

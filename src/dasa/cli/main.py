@@ -49,6 +49,18 @@ from dasa.cli.context import context
 app.command()(run)
 app.command()(context)
 
+# Sprint 4: Multi-Agent
+from dasa.cli.status import status
+
+app.command()(status)
+
+# Sprint 5: Extensions
+from dasa.cli.replay import replay
+from dasa.cli.mcp_serve import mcp_serve
+
+app.command()(replay)
+app.command(name="mcp-serve")(mcp_serve)
+
 
 if __name__ == "__main__":
     app()
