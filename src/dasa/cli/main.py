@@ -35,5 +35,20 @@ def version():
     console.print(f"dasa {__version__}")
 
 
+# Sprint 2: Eyes
+from dasa.cli.profile import profile
+from dasa.cli.check import check
+
+app.command()(profile)
+app.command()(check)
+
+# Sprint 3: Hands + Memory
+from dasa.cli.run import run
+from dasa.cli.context import context
+
+app.command()(run)
+app.command()(context)
+
+
 if __name__ == "__main__":
     app()
