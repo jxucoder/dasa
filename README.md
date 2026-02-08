@@ -14,33 +14,29 @@ Data science notebooks have issues that coding agents can't handle with standard
 | **Out-of-order execution** | Output doesn't match code |
 | **Unknown data** | Agent writes code for data it hasn't seen |
 | **Long-running cells** | Agent times out waiting for training |
-| **Stale outputs** | Agent works with outdated results |
+| **Lost context** | Knowledge evaporates between conversations |
 
 **Regular coding agents can read and write files. They can't diagnose notebook state.**
 
 ## The Solution
 
-DASA provides two things:
-
-1. **Agent Skill** (`SKILL.md`) - Teaches agents notebook best practices
-2. **Diagnostic CLI** - Tools that answer the questions agents need answered
+Four commands that give agents eyes, hands, and memory for notebook work:
 
 ```bash
-# Is this notebook's output trustworthy?
-dasa validate notebook.ipynb
-
-# What does this DataFrame actually contain?
+# See the data
 dasa profile notebook.ipynb --var df
 
-# If I change cell 3, what else needs to run?
-dasa deps notebook.ipynb
+# See the notebook health
+dasa check notebook.ipynb
 
-# Run this cell (with async support for long operations)
-dasa run notebook.ipynb --cell 4 --async
+# Execute cells with rich error context
+dasa run notebook.ipynb --cell 5
 
-# Will this notebook reproduce from scratch?
-dasa replay notebook.ipynb
+# Read/write persistent project memory
+dasa context
 ```
+
+Plus an **Agent Skill** (`SKILL.md`) that teaches agents when and how to use these tools.
 
 ## Quick Start
 
@@ -48,129 +44,151 @@ dasa replay notebook.ipynb
 # Install
 pip install dasa
 
-# Validate notebook state
-dasa validate my_analysis.ipynb
-
 # Profile a DataFrame
 dasa profile my_analysis.ipynb --var df
 
-# Check dependencies
-dasa deps my_analysis.ipynb
+# Check notebook health
+dasa check my_analysis.ipynb
+
+# Run a cell with error context
+dasa run my_analysis.ipynb --cell 3
+
+# Read project context
+dasa context
 ```
 
-## Tool Categories
+## Commands
+
+### `dasa profile` — See the data
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         DASA Tools                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Understanding        Execution          Manipulation       │
-│  ─────────────        ─────────          ────────────       │
-│  profile              run                add                │
-│  validate             replay             edit               │
-│  deps                 status             delete             │
-│                                          move               │
-│                                                             │
-│  State                Info                                  │
-│  ─────                ────                                  │
-│  vars                 info                                  │
-│  kernel               cells                                 │
-│  stale                outputs                               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+$ dasa profile notebook.ipynb --var df
+
+DataFrame: df (50,000 rows x 12 columns)
+Memory: 4.6 MB
+
+Column      Type       Non-Null     Unique   Stats / Values              Issues
+---
+user_id     int64      50,000 (100%) 50,000  min=1, max=50000
+age         int64      47,659 (95%)  78      min=18, max=95, mean=42     4.7% null
+revenue     float64    48,750 (98%)  12,341  min=-500, max=99847         2.5% null, 23 negative
+region      object     50,000 (100%) 4       'North', 'South', 'East'
 ```
+
+Auto-caches the profile to `.dasa/profiles/df.yaml` for instant reuse.
+
+### `dasa check` — See notebook health
+
+```
+$ dasa check notebook.ipynb
+
+Notebook: analysis.ipynb (24 cells)
+
+State:
+  X Cell 3: output is STALE (code modified after last run)
+  X Cell 8: uses undefined variable 'X'
+  ! Cell 10: never executed
+  OK 21 cells consistent
+
+Dependencies:
+  Cell 0 (imports) -> Cell 1, 2, 3, 4, 5
+  Cell 1 (df = pd.read_csv...) -> Cell 2, 3, 5, 8
+
+  If you modify Cell 1: 6 cells need re-run -> [2, 3, 5, 8, 12]
+```
+
+One command combining state validation, dependency analysis, and staleness detection.
+
+### `dasa run` — Execute safely
+
+```
+$ dasa run notebook.ipynb --cell 8
+
+Cell 8 FAILED (0.1s)
+
+Error: KeyError: 'revenue_usd'
+  Line 3: df['profit'] = df['revenue_usd'] - df['cost']
+
+Available columns: user_id, age, score, region, revenue, cost
+Suggestion: Did you mean 'revenue'?
+```
+
+Rich error context with available variables and "did you mean?" suggestions.
+
+### `dasa context` — Remember across conversations
+
+```
+$ dasa context
+
+Project: churn_prediction
+Goal: Predict user churn, AUC > 0.80, interpretable model
+Status: features complete, model training next
+
+Data:
+  df: 50,000 rows x 12 cols (users.csv)
+
+Tried:
+  X Random forest -- overfit (0.91 train / 0.72 test)
+  OK Logistic regression -- 0.84 test AUC (current best)
+
+Recent:
+  [10:00] Set goal: predict churn, interpretable
+  [10:15] Profiled data. 50k rows, nulls in age (4.7%)
+  [11:00] LR: 0.84 AUC. Adding days_inactive feature next.
+```
+
+Persistent project memory that survives between conversations.
+
+## The Session
+
+The `.dasa/` directory accumulates project knowledge automatically:
+
+```
+.dasa/
+  context.yaml          # Goal, status, constraints
+  profiles/             # Cached data profiles (auto-populated)
+    df.yaml
+  log                   # Decision history (append-only)
+  state.json            # Cell execution hashes (staleness)
+```
+
+Tools auto-populate it: `profile` caches results, `run` logs outcomes, `check` records findings. Any agent reads `dasa context` to get full project state.
 
 ## For Coding Agents
 
-### Using the Agent Skill
+### Agent Skill
 
-Copy the skill to your project:
+The agent skill teaches agents notebook best practices:
 
 ```bash
-# For Cursor
-mkdir -p .cursor/skills
-cp $(python -c "import dasa; print(dasa.SKILL_PATH)") .cursor/skills/notebook.md
-
 # For Claude Code
-mkdir -p .claude/skills
-cp $(python -c "import dasa; print(dasa.SKILL_PATH)") .claude/skills/notebook/SKILL.md
-```
+cp skills/notebook/SKILL.md .claude/skills/notebook/SKILL.md
 
-The agent will automatically use DASA tools when working with notebooks.
+# For Cursor
+cp skills/notebook/SKILL.md .cursor/skills/notebook.md
+```
 
 ### Agent Workflow
 
-When an agent works with a notebook, it should:
-
-1. **Validate first**: `dasa validate notebook.ipynb`
-2. **Profile data**: `dasa profile notebook.ipynb --var df`
-3. **Check dependencies**: `dasa deps notebook.ipynb`
-4. **Execute with context**: `dasa run notebook.ipynb --cell N`
-5. **Verify reproducibility**: `dasa replay notebook.ipynb`
-
-## Example Workflow
-
-```bash
-# 1. Agent receives task: "Add a visualization of sales by region"
-
-# 2. First, understand the data
-$ dasa profile notebook.ipynb --var sales_data
-
-DataFrame: sales_data (10000 rows × 5 columns)
-Columns:
-  region      object     4 unique: ['North', 'South', 'East', 'West']
-  sales       float64    min=100, max=50000, mean=5200
-  date        datetime64 2023-01-01 to 2024-12-31
-  ...
-
-# 3. Check what cells exist and their dependencies
-$ dasa deps notebook.ipynb
-
-Cell 1 (load_data) → Cell 2, Cell 3
-Cell 2 (transform) → Cell 3
-Cell 3 (current visualizations) [TERMINAL]
-
-# 4. Add the new visualization cell
-$ dasa add notebook.ipynb --after 3 --code "
-import matplotlib.pyplot as plt
-sales_by_region = sales_data.groupby('region')['sales'].sum()
-plt.bar(sales_by_region.index, sales_by_region.values)
-plt.title('Sales by Region')
-plt.show()
-"
-
-# 5. Run and verify
-$ dasa run notebook.ipynb --cell 4
-
-Cell 4 executed successfully (0.23s)
-Output: matplotlib.Figure (bar chart with 4 bars)
-```
+1. **Start**: `dasa context` — read project state
+2. **Before data code**: `dasa profile --var df` — see exact columns
+3. **Before editing cells**: `dasa check` — understand dependencies
+4. **Debug errors**: `dasa run --cell N` — rich error context
+5. **End of session**: `dasa context --log "..."` — record progress
 
 ## Documentation
 
-- [Problems We Solve](docs/PROBLEMS.md) - Deep dive into notebook issues
-- [CLI Reference](docs/CLI.md) - Complete command documentation
-- [Integration Guide](docs/INTEGRATION.md) - Working with coding agents
-- [Architecture](docs/ARCHITECTURE.md) - Technical design
-- [Implementation Plan](docs/PLAN.md) - Phased development roadmap
-- [Evaluation Framework](docs/EVAL.md) - How we measure effectiveness
-- [Sprints](docs/sprints/README.md) - Detailed sprint breakdowns
+- [Design](docs/DESIGN.md) — Vision, problem, solution, multi-agent architecture
+- [Architecture](docs/ARCHITECTURE.md) — Technical components, session system, package structure
+- [Plan](docs/PLAN.md) — Sprint roadmap (6 sprints, MVP = Sprints 0-3)
+- [Evaluation](docs/EVAL.md) — Evaluation framework, task categories, metrics
+- [Sprints](docs/sprints/README.md) — Detailed sprint breakdowns
 
 ## Supported Formats
 
-- **Jupyter Notebooks** (`.ipynb`) - Full support
-- **Google Colab** (`.ipynb`) - Full support
-- **Marimo** (`.py`) - Planned
-
-## Philosophy
-
-DASA is built on these principles:
-
-1. **Diagnostic, not operational** - We help agents understand notebooks, not just edit them
-2. **Problem-driven** - Every command solves a real data science problem
-3. **LLM-friendly output** - All output is structured for AI consumption
-4. **Universal** - Works with any agent that can run bash commands
+- **Jupyter Notebooks** (`.ipynb`) — Full support
+- **Google Colab** (`.ipynb`) — Full support
+- **Marimo** (`.py`) — Planned (Sprint 5)
 
 ## License
 

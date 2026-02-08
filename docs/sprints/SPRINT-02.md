@@ -59,7 +59,7 @@ Data Quality Issues:
   ⚠ revenue: 2.5% null, has negative values
 ```
 
-See `legacy_docs/sprints/SPRINT-02.md` for full profiler implementation.
+See `src/dasa/analysis/profiler.py` for the full profiler implementation.
 
 ---
 

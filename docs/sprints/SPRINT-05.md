@@ -218,7 +218,7 @@ Issues Found:
 - Calculates reproducibility score
 - Suggests fixes for common issues
 
-See `legacy_docs/sprints/SPRINT-03.md` for full `replay.py` implementation.
+See `src/dasa/cli/replay.py` for the full implementation.
 
 ---
 
