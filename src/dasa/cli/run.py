@@ -5,7 +5,7 @@ import json
 import typer
 from rich.console import Console
 
-from dasa.notebook.jupyter import JupyterAdapter
+from dasa.notebook.loader import get_adapter
 from dasa.notebook.kernel import DasaKernelManager
 from dasa.analysis.error_context import build_error_context
 from dasa.analysis.deps import DependencyAnalyzer
@@ -22,11 +22,12 @@ def run(
     to_cell: int = typer.Option(None, "--to", help="Run from start to this cell"),
     all_cells: bool = typer.Option(False, "--all", help="Run all cells"),
     stale: bool = typer.Option(False, "--stale", help="Run only stale cells"),
+    stream: bool = typer.Option(False, "--stream", "-s", help="Stream output live as cells execute"),
     timeout: int = typer.Option(300, "--timeout", "-t", help="Timeout per cell in seconds"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
 ) -> None:
     """Execute notebook cells with rich error context."""
-    adapter = JupyterAdapter(notebook)
+    adapter = get_adapter(notebook)
     code_cells = adapter.code_cells
 
     # Determine which cells to run
@@ -56,7 +57,23 @@ def run(
 
         # Execute target cells
         for target_cell in cells_to_run:
-            result = kernel.execute(target_cell.source, timeout=timeout)
+            if stream and format != "json":
+                console.print(f"[bold]--- Cell {target_cell.index} ---[/bold]")
+                gen = kernel.execute_streaming(target_cell.source, timeout=timeout)
+                try:
+                    while True:
+                        stream_type, text = next(gen)
+                        if stream_type == "stdout":
+                            console.print(text, end="", highlight=False)
+                        elif stream_type == "stderr":
+                            console.print(f"[dim]{text}[/dim]", end="", highlight=False)
+                        elif stream_type == "error":
+                            console.print(f"[red]{text}[/red]")
+                except StopIteration as e:
+                    result = e.value
+                console.print()  # newline after streaming
+            else:
+                result = kernel.execute(target_cell.source, timeout=timeout)
 
             cell_result = {
                 "cell": target_cell.index,

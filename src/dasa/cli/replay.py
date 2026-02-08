@@ -6,7 +6,7 @@ import json
 import typer
 from rich.console import Console
 
-from dasa.notebook.jupyter import JupyterAdapter
+from dasa.notebook.loader import get_adapter
 from dasa.notebook.kernel import DasaKernelManager
 from dasa.session.log import SessionLog
 
@@ -19,7 +19,7 @@ def replay(
     format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
 ) -> None:
     """Run notebook from scratch in a fresh kernel and verify reproducibility."""
-    adapter = JupyterAdapter(notebook)
+    adapter = get_adapter(notebook)
     code_cells = adapter.code_cells
 
     if not code_cells:

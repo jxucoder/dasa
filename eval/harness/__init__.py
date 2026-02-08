@@ -7,8 +7,17 @@ reproducibility.
 """
 
 from .runner import EvalRunner
-from .agent import AgentWrapper
+from .agent import AgentWrapper, DummyAgent
 from .checker import CheckerDispatch
 from .metrics import MetricsCollector
+from .claude_agent import ClaudeVanillaAgent, ClaudeDasaAgent
 
-__all__ = ["EvalRunner", "AgentWrapper", "CheckerDispatch", "MetricsCollector"]
+__all__ = [
+    "EvalRunner",
+    "AgentWrapper",
+    "DummyAgent",
+    "CheckerDispatch",
+    "MetricsCollector",
+    "ClaudeVanillaAgent",
+    "ClaudeDasaAgent",
+]

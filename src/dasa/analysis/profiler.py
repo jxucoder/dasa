@@ -1,7 +1,9 @@
 """Data profiling by injecting profiling code into the kernel."""
 
+import csv
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 from dasa.notebook.kernel import DasaKernelManager
@@ -113,11 +115,38 @@ del _dasa_profile
 '''
 
 
+LIST_DATAFRAMES_CODE = '''
+import json as _json
+import pandas as _pd
+
+_dfs = []
+for _name, _obj in list(globals().items()):
+    if not _name.startswith('_') and isinstance(_obj, _pd.DataFrame):
+        _dfs.append({
+            "name": _name,
+            "shape": list(_obj.shape),
+            "memory_mb": round(_obj.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+        })
+print(_json.dumps(_dfs))
+del _dfs
+'''
+
+
 class Profiler:
     """Profile variables in kernel memory."""
 
     def __init__(self, kernel: DasaKernelManager):
         self.kernel = kernel
+
+    def list_dataframes(self) -> list[dict]:
+        """List all DataFrame variables in the kernel."""
+        result = self.kernel.execute(LIST_DATAFRAMES_CODE, timeout=15)
+        if not result.success:
+            return []
+        try:
+            return json.loads(result.stdout.strip())
+        except json.JSONDecodeError:
+            return []
 
     def profile_dataframe(self, var_name: str) -> DataFrameProfile:
         """Profile a DataFrame variable in the kernel."""
@@ -180,3 +209,100 @@ class Profiler:
             columns=columns,
             issues=issues,
         )
+
+
+def profile_csv(file_path: str) -> DataFrameProfile:
+    """Profile a CSV file directly without a kernel.
+
+    Reads the file with the csv module + basic stats,
+    avoiding a pandas/kernel dependency for quick profiling.
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Read the CSV
+    with open(path, newline="", encoding="utf-8", errors="replace") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if not header:
+            raise ValueError(f"Empty CSV file: {file_path}")
+
+        rows: list[list[str]] = []
+        for row in reader:
+            rows.append(row)
+
+    n_rows = len(rows)
+    n_cols = len(header)
+    columns: list[ColumnProfile] = []
+    issues: list[str] = []
+
+    for col_idx, col_name in enumerate(header):
+        values = [row[col_idx] if col_idx < len(row) else "" for row in rows]
+        non_empty = [v for v in values if v.strip()]
+        null_count = n_rows - len(non_empty)
+        null_pct = round(null_count / n_rows * 100, 2) if n_rows > 0 else 0
+        unique_count = len(set(non_empty))
+
+        col_issues: list[str] = []
+        if null_pct > 0:
+            col_issues.append(f"{null_pct}% null values")
+
+        # Try to detect numeric columns
+        min_val = max_val = mean_val = std_val = None
+        top_values = None
+        dtype = "object"
+
+        numeric_vals: list[float] = []
+        for v in non_empty:
+            try:
+                numeric_vals.append(float(v))
+            except ValueError:
+                break
+        else:
+            # All non-empty values are numeric
+            if numeric_vals:
+                dtype = "float64" if any("." in v for v in non_empty) else "int64"
+                min_val = min(numeric_vals)
+                max_val = max(numeric_vals)
+                mean_val = sum(numeric_vals) / len(numeric_vals)
+                variance = sum((x - mean_val) ** 2 for x in numeric_vals) / max(len(numeric_vals) - 1, 1)
+                std_val = variance ** 0.5
+                if min_val < 0:
+                    col_issues.append("has negative values")
+
+        if dtype == "object" and non_empty:
+            # Get top values by frequency
+            from collections import Counter
+            counts = Counter(non_empty)
+            top_values = [v for v, _ in counts.most_common(10)]
+
+        if col_issues:
+            issues.append(f"{col_name}: {', '.join(col_issues)}")
+
+        columns.append(ColumnProfile(
+            name=col_name,
+            dtype=dtype,
+            non_null_count=len(non_empty),
+            total_count=n_rows,
+            null_count=null_count,
+            null_percent=null_pct,
+            unique_count=unique_count,
+            min_val=min_val,
+            max_val=max_val,
+            mean_val=mean_val,
+            std_val=std_val,
+            top_values=top_values,
+            issues=col_issues,
+        ))
+
+    # Estimate memory (rough: 8 bytes per numeric, avg string length per object)
+    memory_est = n_rows * n_cols * 8
+
+    return DataFrameProfile(
+        name=path.stem,
+        shape=(n_rows, n_cols),
+        memory_bytes=memory_est,
+        columns=columns,
+        issues=issues,
+    )

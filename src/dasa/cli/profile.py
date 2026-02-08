@@ -7,9 +7,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dasa.notebook.jupyter import JupyterAdapter
+from dasa.notebook.loader import get_adapter
 from dasa.notebook.kernel import DasaKernelManager
-from dasa.analysis.profiler import Profiler
+from dasa.analysis.profiler import Profiler, profile_csv
 from dasa.session.log import SessionLog
 from dasa.session.profiles import ProfileCache
 
@@ -17,12 +17,48 @@ console = Console()
 
 
 def profile(
-    notebook: str = typer.Argument(..., help="Path to notebook"),
-    var: str = typer.Option(..., "--var", "-v", help="Variable name to profile"),
+    notebook: str = typer.Argument(None, help="Path to notebook (.ipynb/.py)"),
+    var: Optional[str] = typer.Option(None, "--var", "-v", help="Variable name to profile (omit to list all DataFrames)"),
+    file: Optional[str] = typer.Option(None, "--file", help="Profile a CSV file directly (no kernel needed)"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
 ) -> None:
-    """Profile a DataFrame variable in the notebook kernel."""
-    adapter = JupyterAdapter(notebook)
+    """Profile a DataFrame variable or CSV file.
+
+    Without --var: lists all DataFrames in the notebook.
+    With --var: profiles that specific variable.
+    With --file: profiles a CSV directly (no kernel needed).
+    """
+    # CSV file profiling (no kernel needed)
+    if file is not None:
+        try:
+            df_profile = profile_csv(file)
+        except (FileNotFoundError, ValueError) as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+        if format == "json":
+            console.print(json.dumps(df_profile.to_dict(), indent=2))
+        else:
+            _print_profile(df_profile)
+
+        # Auto-cache and log
+        cache = ProfileCache()
+        cache.save(df_profile.name, df_profile.to_dict())
+        log = SessionLog()
+        issues_str = ", ".join(df_profile.issues[:3]) if df_profile.issues else "none"
+        log.append(
+            "profile",
+            f"Profiled CSV {file}. {df_profile.shape[0]:,} rows x {df_profile.shape[1]} cols. "
+            f"Issues: {issues_str}",
+        )
+        return
+
+    # Notebook-based profiling requires a notebook argument
+    if notebook is None:
+        console.print("[red]Error: provide a notebook path or --file for CSV profiling[/red]")
+        raise typer.Exit(1)
+
+    adapter = get_adapter(notebook)
 
     # Start kernel and replay executed cells
     kernel = DasaKernelManager()
@@ -39,8 +75,38 @@ def profile(
                         f"{result.error_type}: {result.error}[/yellow]"
                     )
 
-        # Profile the variable
         profiler = Profiler(kernel)
+
+        if var is None:
+            # Auto-discovery: list all DataFrames
+            dataframes = profiler.list_dataframes()
+            if not dataframes:
+                console.print("[yellow]No DataFrames found in the notebook kernel.[/yellow]")
+                return
+
+            if format == "json":
+                console.print(json.dumps(dataframes, indent=2))
+            else:
+                console.print(f"\n[bold]DataFrames in {notebook}:[/bold]\n")
+                table = Table()
+                table.add_column("Variable", style="cyan")
+                table.add_column("Shape", style="green")
+                table.add_column("Memory", style="white")
+                for df_info in dataframes:
+                    shape_str = f"{df_info['shape'][0]:,} x {df_info['shape'][1]}"
+                    mem_str = f"{df_info['memory_mb']:.1f} MB"
+                    table.add_row(df_info["name"], shape_str, mem_str)
+                console.print(table)
+                console.print(
+                    "\n[dim]Use --var <name> to profile a specific DataFrame[/dim]\n"
+                )
+
+            log = SessionLog()
+            names = ", ".join(d["name"] for d in dataframes)
+            log.append("profile", f"Listed {len(dataframes)} DataFrames in {notebook}: {names}")
+            return
+
+        # Profile a specific variable
         try:
             df_profile = profiler.profile_dataframe(var)
         except RuntimeError as e:

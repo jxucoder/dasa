@@ -8,8 +8,11 @@ import yaml
 class ProfileCache:
     """Cache and retrieve data profiles."""
 
-    def __init__(self, project_dir: str = "."):
-        self.profiles_dir = Path(project_dir) / ".dasa" / "profiles"
+    def __init__(self, project_dir: str = ".", session_dir: str | None = None):
+        if session_dir:
+            self.profiles_dir = Path(session_dir) / "profiles"
+        else:
+            self.profiles_dir = Path(project_dir) / ".dasa" / "profiles"
 
     def save(self, var_name: str, profile: dict) -> Path:
         """Save a profile to cache."""

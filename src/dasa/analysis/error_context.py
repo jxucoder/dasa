@@ -2,9 +2,11 @@
 
 import difflib
 import json
+import re
 from typing import Optional
 
 from dasa.notebook.kernel import DasaKernelManager
+from dasa.session.profiles import ProfileCache
 
 
 def build_error_context(
@@ -26,9 +28,9 @@ def build_error_context(
         context["error_line"] = error_line
 
     if error_type == "KeyError":
-        # Get available DataFrame columns
+        # Get available DataFrame columns — try cache first, then kernel
         col_name = error_msg.strip("'\"")
-        available = _get_available_columns(kernel, source)
+        available = _get_cached_columns(source) or _get_available_columns(kernel, source)
         if available:
             context["available_columns"] = available
             match = _fuzzy_match(col_name, available)
@@ -56,13 +58,27 @@ def build_error_context(
     return context
 
 
+def _get_cached_columns(source: str) -> Optional[list[str]]:
+    """Try to get columns from profile cache (fast, no kernel query)."""
+    df_refs = re.findall(r'(\w+)\[', source)
+    cache = ProfileCache()
+    for var_name in set(df_refs):
+        profile = cache.load(var_name)
+        if profile and "columns" in profile:
+            cols = profile["columns"]
+            if isinstance(cols, dict):
+                return list(cols.keys())
+            elif isinstance(cols, list):
+                return [c.get("name", "") for c in cols if isinstance(c, dict)]
+    return None
+
+
 def _extract_error_line(source: str, traceback: list[str]) -> Optional[dict]:
     """Extract the line number and content that caused the error."""
     lines = source.splitlines()
     # Try to find line number in traceback
     for tb_line in reversed(traceback):
         # Look for patterns like "line 3" or "----> 3"
-        import re
         match = re.search(r'(?:line |---->?\s*)(\d+)', tb_line)
         if match:
             line_num = int(match.group(1))
@@ -76,9 +92,6 @@ def _extract_error_line(source: str, traceback: list[str]) -> Optional[dict]:
 
 def _get_available_columns(kernel: DasaKernelManager, source: str) -> Optional[list[str]]:
     """Try to get available DataFrame columns from the kernel."""
-    # Find DataFrame variable names in the source
-    import re
-    # Look for patterns like df['column'] or df["column"]
     df_refs = re.findall(r'(\w+)\[', source)
 
     for var_name in set(df_refs):
@@ -119,7 +132,6 @@ print(_j.dumps(_vars))
 
 def _extract_name_from_error(error_msg: str) -> Optional[str]:
     """Extract variable name from NameError message."""
-    import re
     match = re.search(r"name '(\w+)' is not defined", error_msg)
     if match:
         return match.group(1)

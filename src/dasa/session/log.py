@@ -7,8 +7,11 @@ from datetime import datetime
 class SessionLog:
     """Append-only log of decisions and actions."""
 
-    def __init__(self, project_dir: str = "."):
-        self.log_path = Path(project_dir) / ".dasa" / "log"
+    def __init__(self, project_dir: str = ".", session_dir: str | None = None):
+        if session_dir:
+            self.log_path = Path(session_dir) / "log"
+        else:
+            self.log_path = Path(project_dir) / ".dasa" / "log"
 
     def append(self, source: str, message: str) -> None:
         """Append an entry to the log."""

@@ -1,6 +1,7 @@
 """Jupyter kernel lifecycle and execution."""
 
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Optional, Any
 
@@ -98,6 +99,76 @@ class DasaKernelManager:
                 error_type = content.get("ename", "")
                 error = content.get("evalue", "")
                 tb = content.get("traceback", [])
+            elif msg_type == "status" and content.get("execution_state") == "idle":
+                break
+
+        elapsed = time.time() - start_time
+        success = error is None
+
+        return ExecutionResult(
+            success=success,
+            stdout="".join(stdout_parts),
+            stderr="".join(stderr_parts),
+            result=result_value,
+            error=error,
+            error_type=error_type,
+            traceback=tb,
+            execution_time=elapsed,
+        )
+
+    def execute_streaming(self, code: str, timeout: int = 300) -> Generator[tuple[str, str], None, ExecutionResult]:
+        """Execute code and yield (stream_type, text) tuples as output arrives.
+
+        stream_type is one of: "stdout", "stderr", "result", "error".
+        After all output is yielded, returns the full ExecutionResult.
+        """
+        if not self._kc:
+            raise RuntimeError("Kernel not started. Call start() first.")
+
+        start_time = time.time()
+        msg_id = self._kc.execute(code)
+
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+        result_value = None
+        error = None
+        error_type = None
+        tb: list[str] = []
+
+        while True:
+            try:
+                msg = self._kc.get_iopub_msg(timeout=timeout)
+            except Exception:
+                yield ("error", "Timeout waiting for kernel response")
+                return ExecutionResult(
+                    success=False,
+                    error="Timeout waiting for kernel response",
+                    execution_time=time.time() - start_time,
+                )
+
+            if msg["parent_header"].get("msg_id") != msg_id:
+                continue
+
+            msg_type = msg["msg_type"]
+            content = msg["content"]
+
+            if msg_type == "stream":
+                if content["name"] == "stdout":
+                    text = content["text"]
+                    stdout_parts.append(text)
+                    yield ("stdout", text)
+                elif content["name"] == "stderr":
+                    text = content["text"]
+                    stderr_parts.append(text)
+                    yield ("stderr", text)
+            elif msg_type in ("execute_result", "display_data"):
+                result_value = content.get("data", {}).get("text/plain", "")
+                yield ("result", result_value)
+            elif msg_type == "error":
+                error_type = content.get("ename", "")
+                error = content.get("evalue", "")
+                tb = content.get("traceback", [])
+                yield ("error", f"{error_type}: {error}")
             elif msg_type == "status" and content.get("execution_state") == "idle":
                 break
 

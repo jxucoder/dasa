@@ -10,8 +10,11 @@ from typing import Optional
 class StateTracker:
     """Track cell code hashes for staleness detection."""
 
-    def __init__(self, project_dir: str = "."):
-        self.state_path = Path(project_dir) / ".dasa" / "state.json"
+    def __init__(self, project_dir: str = ".", session_dir: str | None = None):
+        if session_dir:
+            self.state_path = Path(session_dir) / "state.json"
+        else:
+            self.state_path = Path(project_dir) / ".dasa" / "state.json"
 
     def _load(self) -> dict:
         """Load state from disk."""
