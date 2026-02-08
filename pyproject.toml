@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dasa"
+version = "0.1.0"
+description = "Data Science Agent toolkit for notebook-based workflows"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "nbformat>=5.9",
+    "nbclient>=0.10",
+    "jupyter-client>=8.0",
+    "typer>=0.12",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+    "ipykernel>=6.0",
+]
+
+[project.scripts]
+dasa = "dasa.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dasa"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100

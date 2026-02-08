@@ -1,0 +1,15 @@
+{
+  "id": "DU-01",
+  "category": "data_understanding",
+  "name": "Find Null Columns",
+  "prompt": "Examine the dataset loaded in this notebook and identify which columns contain null (missing) values. List all column names that have at least one null value.",
+  "notebook": "clean.ipynb",
+  "setup": {
+    "description": "Notebook with sales data loaded and basic cleaning applied."
+  },
+  "success_criteria": {
+    "type": "contains_all",
+    "values": ["revenue", "email"]
+  },
+  "difficulty": "easy"
+}

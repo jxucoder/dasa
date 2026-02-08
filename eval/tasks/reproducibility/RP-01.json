@@ -1,0 +1,15 @@
+{
+  "id": "RP-01",
+  "category": "reproducibility",
+  "name": "Identify Reproducibility Issues",
+  "prompt": "Review this notebook and identify all reproducibility issues that would prevent another user from running it successfully or getting the same results. List each issue found.",
+  "notebook": "unreproducible.ipynb",
+  "setup": {
+    "description": "Notebook with multiple reproducibility problems: hardcoded absolute path, no random seed for sampling, reliance on environment variable, and timestamp-dependent output."
+  },
+  "success_criteria": {
+    "type": "contains_any",
+    "values": ["hardcoded path", "random seed", "environment variable", "API_KEY"]
+  },
+  "difficulty": "medium"
+}

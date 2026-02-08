@@ -1,0 +1,15 @@
+{
+  "id": "DR-02",
+  "category": "dependency_reasoning",
+  "name": "Execution Order Question",
+  "prompt": "What is the correct execution order for all cells in this notebook to produce valid results? List all cell indices in the order they must be executed.",
+  "notebook": "complex.ipynb",
+  "setup": {
+    "description": "Complex ML notebook with 7 cells that have sequential dependencies. The correct order follows the cell indices top-to-bottom."
+  },
+  "success_criteria": {
+    "type": "contains_all",
+    "values": ["0", "1", "2", "3", "4", "5", "6"]
+  },
+  "difficulty": "easy"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "SR-01",
+  "category": "state_recovery",
+  "name": "Fix Inconsistent State",
+  "prompt": "This notebook has been executed out of order, resulting in inconsistent state. The execution counts show a non-sequential order. Re-order or re-execute the cells so that the notebook runs top-to-bottom without errors and all outputs are consistent with the code.",
+  "notebook": "messy.ipynb",
+  "setup": {
+    "description": "Notebook with cells executed in wrong order (0->3->1->5->2->4). Variables may reference data not yet defined at the time of execution."
+  },
+  "success_criteria": {
+    "type": "notebook_validates"
+  },
+  "difficulty": "medium"
+}

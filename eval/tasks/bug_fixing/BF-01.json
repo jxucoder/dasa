@@ -1,0 +1,15 @@
+{
+  "id": "BF-01",
+  "category": "bug_fixing",
+  "name": "Fix KeyError in Cell 2",
+  "prompt": "Cell 2 of this notebook raises a KeyError because it references a column 'revenue_usd' that does not exist. Fix the code so that it correctly computes the 'profit' column using the actual column names available in the DataFrame.",
+  "notebook": "broken.ipynb",
+  "setup": {
+    "description": "Notebook with a KeyError in cell 2 due to incorrect column name 'revenue_usd'. The correct column name is 'revenue'."
+  },
+  "success_criteria": {
+    "type": "cell_executes",
+    "cell": 2
+  },
+  "difficulty": "easy"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "DU-03",
+  "category": "data_understanding",
+  "name": "Count Unique Categories",
+  "prompt": "How many unique values are in the 'category' column of the dataset?",
+  "notebook": "clean.ipynb",
+  "setup": {
+    "description": "Notebook with sales data loaded. Category column contains letter codes."
+  },
+  "success_criteria": {
+    "type": "contains_all",
+    "values": ["5"]
+  },
+  "difficulty": "easy"
+}

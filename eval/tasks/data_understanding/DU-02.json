@@ -1,0 +1,17 @@
+{
+  "id": "DU-02",
+  "category": "data_understanding",
+  "name": "Data Range of Revenue",
+  "prompt": "What is the minimum and maximum value of the 'revenue' column in the dataset? Report both values.",
+  "notebook": "clean.ipynb",
+  "setup": {
+    "description": "Notebook with sales data loaded. Revenue column contains nulls and some negative values."
+  },
+  "success_criteria": {
+    "type": "contains_numbers",
+    "expected_min": -500,
+    "expected_max": 50000,
+    "tolerance": 500
+  },
+  "difficulty": "easy"
+}
