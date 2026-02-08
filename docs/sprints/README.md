@@ -1,30 +1,28 @@
 # DASA Sprints
 
-Implementation is divided into sprints, starting with evaluation infrastructure (Sprint 0) to enable test-driven development.
+Implementation is divided into 6 sprints, starting with evaluation infrastructure (Sprint 0) to enable test-driven development.
 
 ## Sprint Overview
 
 | Sprint | Name | Duration | Focus | Deliverables |
 |--------|------|----------|-------|--------------|
 | **0** | [Evaluation](SPRINT-00.md) | 2-3 days | Test infrastructure | Test notebooks, tasks, eval harness, baseline |
-| **1** | [Setup & Core](SPRINT-01.md) | 2-3 days | Foundation | Package, skill, adapters, kernel, parser |
-| **2** | [Understanding](SPRINT-02.md) | 3-4 days | MVP Core | `profile`, `validate`, `deps` |
-| **3** | [Execution](SPRINT-03.md) | 2-3 days | MVP Complete | `run`, `replay` |
-| **4** | [State](SPRINT-04.md) | 2 days | Enhancement | `vars`, `stale`, `kernel` |
-| **5** | [Manipulation](SPRINT-05.md) | 2 days | Enhancement | `add`, `edit`, `delete`, `move` |
-| **6** | [Info & Async](SPRINT-06.md) | 3 days | Nice-to-have | `info`, `cells`, `outputs`, async |
-| **7** | [Extensions](SPRINT-07.md) | 3-4 days | Stretch | Marimo, MCP, rich outputs |
+| **1** | [Core + Session](SPRINT-01.md) | 3-4 days | Foundation | Package, `.dasa/` session, adapters, kernel, parser, skill |
+| **2** | [Eyes](SPRINT-02.md) | 3-4 days | MVP Core | `dasa profile`, `dasa check` |
+| **3** | [Hands + Memory](SPRINT-03.md) | 3-4 days | MVP Complete | `dasa run`, `dasa context` |
+| **4** | [Multi-Agent](SPRINT-04.md) | 3-4 days | Enhancement | Agent roles, hooks, background execution |
+| **5** | [Extensions](SPRINT-05.md) | 3-4 days | Stretch | MCP server, Marimo adapter, replay |
 
 ## MVP Definition
 
-**MVP = Sprint 0 + Sprint 1 + Sprint 2 + Sprint 3**
+**MVP = Sprint 0 + Sprint 1 + Sprint 2 + Sprint 3** (~12-15 days)
 
 | Sprint | Eval Impact |
 |--------|-------------|
 | Sprint 0 | Establishes baseline metrics |
 | Sprint 1 | Infrastructure (no direct eval impact) |
-| Sprint 2 | Improves DU, SR, DR tasks |
-| Sprint 3 | Improves BF, RP tasks |
+| Sprint 2 | Improves Data Understanding, State Recovery, Dependency Reasoning |
+| Sprint 3 | Improves Bug Fixing, Reproducibility; context improves all categories |
 
 **MVP Success:** Overall completion rate >70% with +25% improvement over baseline.
 
@@ -39,30 +37,68 @@ Sprint 0: Eval Infrastructure
     └── Establish baseline metrics
     │
     ▼
-Sprint 1: Setup & Core
+Sprint 1: Core + Session
     │
     ├── pyproject.toml, package structure
-    ├── Agent skill (SKILL.md)
-    ├── Jupyter adapter
-    ├── Kernel manager
-    └── AST parser
+    ├── .dasa/ session (context.yaml, profiles/, log)
+    ├── Jupyter adapter, kernel manager
+    ├── AST parser, output formatter
+    └── Agent skill (SKILL.md)
     │
     ▼
-Sprint 2: Understanding Tools  ──── Eval checkpoint (DU, SR, DR improvement)
+Sprint 2: Eyes  ──── Eval checkpoint (DU, SR, DR improvement)
     │
-    ├── dasa profile
-    ├── dasa validate
-    └── dasa deps
-    │
-    ▼
-Sprint 3: Execution Tools  ──── MVP Eval checkpoint (all categories)
-    │
-    ├── dasa run
-    └── dasa replay
+    ├── dasa profile (data profiling + auto-cache)
+    └── dasa check (state + deps + staleness)
     │
     ▼
-Sprint 4-7: Enhancements & Extensions
+Sprint 3: Hands + Memory  ──── MVP Eval checkpoint (all categories)
+    │
+    ├── dasa run (cell execution + rich errors)
+    └── dasa context (project memory read/write)
+    │
+    ▼
+Sprint 4: Multi-Agent  ──── Post-MVP
+    │
+    ├── Agent roles in SKILL.md
+    ├── Hook system (auto-profile, auto-log)
+    └── Background execution patterns
+    │
+    ▼
+Sprint 5: Extensions  ──── Stretch
+    │
+    ├── MCP server
+    ├── Marimo adapter
+    └── Replay / reproducibility verification
 ```
+
+## Eval Checkpoints
+
+| Checkpoint | After Sprint | Expected Improvement |
+|------------|--------------|---------------------|
+| Baseline | 0 | ~43% completion (no DASA) |
+| Eyes | 2 | ~56% completion (+13 pts) |
+| MVP Complete | 3 | ~70% completion (+27 pts) |
+| Multi-Agent | 4 | ~78% completion (+35 pts) |
+
+## Sprint Dependencies
+
+```
+Sprint 0 (Eval) ─────────────────────────────────────────┐
+    │                                                     │
+Sprint 1 (Core + Session) ──────────────────────┐        │
+    │                                            │        │
+Sprint 2 (Eyes) ───────────────────┐            │        │
+    │                               │            │        │
+Sprint 3 (Hands + Memory) ────┐    │            │        │
+    │                          │    │            │        │
+Sprint 4 (Multi-Agent)        │    │            │        │
+    │                          │    │            │        │
+Sprint 5 (Extensions)         │    │            │        │
+                           (Execution) (Understanding) (Core) (Eval)
+```
+
+All sprints depend on Sprint 0 (eval) and Sprint 1 (core infrastructure).
 
 ## Getting Started
 
@@ -75,36 +111,3 @@ cat docs/sprints/SPRINT-00.md
 # Create eval directory structure
 mkdir -p eval/{notebooks,data,tasks,harness,results}
 ```
-
-## Evaluation Checkpoints
-
-| Checkpoint | After Sprint | Expected Improvement |
-|------------|--------------|---------------------|
-| Baseline | 0 | ~43% completion (no DASA) |
-| Understanding | 2 | ~56% completion (+13%) |
-| MVP Complete | 3 | ~70% completion (+27%) |
-| Full | 6 | ~80% completion (+37%) |
-
-## Sprint Dependencies
-
-```
-Sprint 0 ───────────────────────────────────────────────────┐
-    │                                                       │
-Sprint 1 ──────────────────────────────────┐               │
-    │                                       │               │
-Sprint 2 ─────────────────────┐            │               │
-    │                          │            │               │
-Sprint 3 ────────┐            │            │               │
-    │             │            │            │               │
-Sprint 4         │            │            │               │
-    │             │            │            │               │
-Sprint 5         │            │            │               │
-    │             │            │            │               │
-Sprint 6         │            │            │               │
-    │             │            │            │               │
-Sprint 7         │            │            │               │
-                  │            │            │               │
-              (Execution)  (Understanding) (Core)        (Eval)
-```
-
-All sprints depend on Sprint 0 (eval) and Sprint 1 (core infrastructure).

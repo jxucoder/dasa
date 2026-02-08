@@ -1,10 +1,10 @@
-# Sprint 5: Manipulation Tools
+# Sprint 5: Extensions
 
-**Goal:** Implement notebook manipulation tools: `add`, `edit`, `delete`, `move`.
+**Goal:** Add MCP server for direct agent integration, Marimo notebook support, and replay for reproducibility verification.
 
-**Duration:** ~2 days
+**Duration:** ~3-4 days
 
-**Prerequisite:** Sprint 4 (State tools)
+**Prerequisite:** Sprint 4 (Multi-Agent & Hooks)
 
 ---
 
@@ -12,93 +12,238 @@
 
 | # | Deliverable | Description |
 |---|-------------|-------------|
-| 1 | `dasa add` | Add new cells to notebook |
-| 2 | `dasa edit` | Edit existing cell content |
-| 3 | `dasa delete` | Delete cells with warnings |
-| 4 | `dasa move` | Reorder cells |
+| 1 | MCP server | Expose DASA tools via Model Context Protocol |
+| 2 | Marimo adapter | Support for Marimo notebooks (.py) |
+| 3 | `dasa replay` | Run notebook from scratch, verify reproducibility |
 
 ---
 
 ## Tasks
 
-### 5.1 Add Command
+### 5.1 MCP Server
+
+Expose DASA tools as MCP tools so agents can call them directly without going through bash.
 
 ```bash
-# Add code cell after cell 3
-dasa add notebook.ipynb --after 3 --code "plt.bar(df['region'], df['sales'])"
-
-# Add markdown cell at the beginning
-dasa add notebook.ipynb --at 0 --markdown "# Sales Analysis Report"
+# Start MCP server
+dasa mcp-serve
 ```
 
-**Features:**
-- Add code or markdown cells
-- Position: `--at N`, `--after N`, `--before N`
-- Validate syntax before adding
-- Show dependency impact
+**Configuration (for any MCP-compatible agent):**
+
+```json
+{
+  "mcpServers": {
+    "dasa": {
+      "command": "dasa",
+      "args": ["mcp-serve"]
+    }
+  }
+}
+```
+
+#### `src/dasa/mcp/server.py`
+
+```python
+"""DASA MCP server."""
+
+from mcp import Server
+
+server = Server("dasa")
+
+
+@server.tool("profile")
+async def profile_tool(notebook: str, var: str) -> str:
+    """Profile a variable in the notebook kernel.
+    
+    Returns column names, types, statistics, and data quality issues.
+    Auto-caches the profile to .dasa/profiles/.
+    """
+    # Call profile logic directly (not via CLI)
+    ...
+
+
+@server.tool("check")
+async def check_tool(notebook: str, cell: int = None) -> str:
+    """Check notebook health: state, dependencies, staleness.
+    
+    If cell is provided, shows impact of modifying that cell.
+    Returns state issues, dependency graph, and execution order.
+    """
+    ...
+
+
+@server.tool("run")
+async def run_tool(notebook: str, cell: int = None, all: bool = False) -> str:
+    """Execute notebook cells with rich error context.
+    
+    Returns output or error with available columns/variables and suggestions.
+    Auto-logs results to .dasa/log.
+    """
+    ...
+
+
+@server.tool("context")
+async def context_tool(
+    action: str = "read",
+    goal: str = None,
+    status: str = None,
+    log: str = None,
+) -> str:
+    """Read or update project context.
+    
+    action="read": Returns project state, data profiles, approaches, recent log.
+    action="write": Updates goal, status, or appends to log.
+    """
+    ...
+```
+
+**Benefits over CLI:**
+- No shell overhead — direct function calls
+- Structured return types
+- Better error handling
+- Works in agent platforms that don't support bash (some MCP-only environments)
 
 ---
 
-### 5.2 Edit Command
+### 5.2 Marimo Adapter
 
-```bash
-dasa edit notebook.ipynb --cell 3 --code "plt.bar(df['region'], df['revenue'])"
+Marimo notebooks are Python files with `@app.cell` decorators and explicit dependency declarations:
 
-# Output:
-# Cell 3 updated.
-# Previous: plt.bar(df['region'], df['sales'])
-# New: plt.bar(df['region'], df['revenue'])
-# 
-# ⚠ This cell has downstream dependents: Cell 4, Cell 5
+```python
+import marimo
+
+app = marimo.App()
+
+@app.cell
+def cell1():
+    import pandas as pd
+    df = pd.read_csv('data.csv')
+    return df,
+
+@app.cell
+def cell2(df):  # Explicit dependency on df
+    clean_df = df.dropna()
+    return clean_df,
 ```
 
-**Features:**
-- Replace cell content
-- Show diff
-- Warn about downstream dependencies
+#### `src/dasa/notebook/marimo.py`
+
+```python
+"""Marimo notebook (.py) adapter."""
+
+import ast
+from pathlib import Path
+from typing import Optional
+
+from .base import Cell, NotebookAdapter
+
+
+class MarimoAdapter(NotebookAdapter):
+    """Adapter for Marimo .py notebooks."""
+    
+    def load(self, path: str) -> None:
+        """Parse .py file and extract @app.cell functions."""
+        self.path = Path(path)
+        source = self.path.read_text()
+        tree = ast.parse(source)
+        
+        self._cells = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                if self._is_cell_function(node):
+                    self._cells.append(self._parse_cell(node, source))
+    
+    def _is_cell_function(self, node: ast.FunctionDef) -> bool:
+        """Check if function has @app.cell decorator."""
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Attribute):
+                if decorator.attr == "cell":
+                    return True
+        return False
+    
+    def _parse_cell(self, node: ast.FunctionDef, source: str) -> Cell:
+        """Extract cell info from function definition."""
+        # Get function body source
+        # Extract dependencies from function arguments
+        # Extract returns from return statement
+        ...
+    
+    @property
+    def cells(self) -> list[Cell]:
+        return self._cells
+    
+    # ... implement remaining abstract methods
+```
+
+**Marimo advantages for DASA:**
+- Dependencies are explicit in function signatures (no AST guessing needed)
+- No hidden state — each cell is a pure function
+- `.py` files are easier to parse than `.ipynb` JSON
 
 ---
 
-### 5.3 Delete Command
+### 5.3 Replay Command
 
-```bash
-dasa delete notebook.ipynb --cell 5
+`dasa replay notebook.ipynb`
 
-# Output:
-# ⚠ Cell 5 defines variables used elsewhere:
-#   - model (used in Cell 6)
-# 
-# Delete anyway? [y/N]
+Run notebook from scratch in a fresh kernel and verify reproducibility.
+
+```
+$ dasa replay notebook.ipynb
+
+Replaying from scratch (new kernel)...
+
+Cell 0: ✓ (0.1s)
+Cell 1: ✓ (0.5s) - outputs match
+Cell 2: ✓ (0.3s) - outputs match
+Cell 3: ⚠ (0.2s) - OUTPUT DIFFERS (random seed not set)
+Cell 4: ✗ FAILED (0.1s) - FileNotFoundError: data/extra.csv
+
+──────────────────────────────────────────────────
+Total time: 1.2s
+Cells executed: 4/5
+Reproducibility Score: 60% (3/5 cells)
+
+Issues Found:
+  1. Cell 3: Output differs from original
+     → Set random seed with np.random.seed(42)
+  2. Cell 4: FileNotFoundError: data/extra.csv
+     → Check if file exists and is committed to repo
 ```
 
-**Features:**
-- Warn about dependent cells
-- Require `--force` to skip confirmation
-- Update indices after deletion
+**Key features:**
+- Starts fresh kernel (no hidden state)
+- Compares outputs to saved outputs (hash comparison)
+- Calculates reproducibility score
+- Suggests fixes for common issues
 
----
-
-### 5.4 Move Command
-
-```bash
-dasa move notebook.ipynb --cell 5 --to 2
-
-# Output:
-# Moved Cell 5 to position 2
-# New order: [0, 1, 5, 2, 3, 4, 6, ...]
-```
-
-**Features:**
-- Reorder cells
-- Validate dependencies don't break
-- Warn if move creates invalid state
+See `legacy_docs/sprints/SPRINT-03.md` for full `replay.py` implementation.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `dasa add` creates new cells at correct position
-- [ ] `dasa edit` updates cell content with diff
-- [ ] `dasa delete` warns about dependencies
-- [ ] `dasa move` reorders cells safely
-- [ ] All commands save notebook after modification
+- [ ] `dasa mcp-serve` starts MCP server
+- [ ] MCP tools callable from any MCP-compatible agent
+- [ ] `dasa profile marimo_notebook.py --var df` works with Marimo files
+- [ ] `dasa check marimo_notebook.py` works with Marimo files
+- [ ] `dasa replay notebook.ipynb` runs from scratch and reports reproducibility
+- [ ] Replay suggests fixes for common issues
+- [ ] All existing tests still pass
+
+---
+
+## Files Created
+
+```
+src/dasa/
+├── cli/
+│   ├── mcp_serve.py        # NEW: MCP server command
+│   └── replay.py           # NEW: replay command
+├── mcp/
+│   ├── __init__.py          # NEW
+│   └── server.py            # NEW: MCP server implementation
+└── notebook/
+    └── marimo.py            # NEW: Marimo adapter
+```
