@@ -258,28 +258,287 @@ Key workflows the skill teaches:
 
 ### 1.4 Jupyter Adapter
 
-See `legacy_docs/sprints/SPRINT-01.md` for full implementation. Key classes:
+#### `src/dasa/notebook/base.py`
 
-- `NotebookAdapter` (abstract base) — `load`, `save`, `cells`, `get_cell`, `add_cell`, `update_cell`, `delete_cell`
-- `JupyterAdapter` — concrete implementation using `nbformat`
-- `Cell` dataclass — `index`, `cell_type`, `source`, `outputs`, `execution_count`
+```python
+"""Abstract notebook adapter."""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+@dataclass
+class Cell:
+    """Represents a notebook cell."""
+    index: int
+    cell_type: str  # "code" or "markdown"
+    source: str
+    outputs: list = field(default_factory=list)
+    execution_count: Optional[int] = None
+
+
+class NotebookAdapter(ABC):
+    """Read/write/modify notebooks regardless of format."""
+
+    @abstractmethod
+    def load(self, path: str) -> None: ...
+
+    @abstractmethod
+    def save(self, path: str = None) -> None: ...
+
+    @property
+    @abstractmethod
+    def cells(self) -> list[Cell]: ...
+
+    @property
+    def code_cells(self) -> list[Cell]:
+        return [c for c in self.cells if c.cell_type == "code"]
+
+    @property
+    def execution_order(self) -> list[int]:
+        executed = [c for c in self.code_cells if c.execution_count is not None]
+        return [c.index for c in sorted(executed, key=lambda c: c.execution_count)]
+
+    @abstractmethod
+    def get_cell(self, index: int) -> Cell: ...
+
+    @abstractmethod
+    def update_cell(self, index: int, source: str) -> None: ...
+```
+
+#### `src/dasa/notebook/jupyter.py`
+
+```python
+"""Jupyter .ipynb adapter using nbformat."""
+
+import nbformat
+from pathlib import Path
+from .base import Cell, NotebookAdapter
+
+
+class JupyterAdapter(NotebookAdapter):
+    """Adapter for Jupyter .ipynb notebooks."""
+
+    def __init__(self, path: str = None):
+        self._nb = None
+        self._path = None
+        if path:
+            self.load(path)
+
+    def load(self, path: str) -> None:
+        self._path = Path(path)
+        with open(self._path) as f:
+            self._nb = nbformat.read(f, as_version=4)
+
+    def save(self, path: str = None) -> None:
+        save_path = Path(path) if path else self._path
+        with open(save_path, "w") as f:
+            nbformat.write(self._nb, f)
+
+    @property
+    def cells(self) -> list[Cell]:
+        result = []
+        for i, cell in enumerate(self._nb.cells):
+            result.append(Cell(
+                index=i,
+                cell_type=cell.cell_type,
+                source=cell.source,
+                outputs=cell.get("outputs", []),
+                execution_count=cell.get("execution_count"),
+            ))
+        return result
+
+    def get_cell(self, index: int) -> Cell:
+        cell = self._nb.cells[index]
+        return Cell(
+            index=index,
+            cell_type=cell.cell_type,
+            source=cell.source,
+            outputs=cell.get("outputs", []),
+            execution_count=cell.get("execution_count"),
+        )
+
+    def update_cell(self, index: int, source: str) -> None:
+        self._nb.cells[index].source = source
+
+    @property
+    def raw_notebook(self):
+        return self._nb
+```
 
 ---
 
 ### 1.5 Kernel Manager
 
-See `legacy_docs/sprints/SPRINT-01.md` for full implementation. Key class:
+#### `src/dasa/notebook/kernel.py`
 
-- `KernelManager` — `start`, `shutdown`, `restart`, `interrupt`, `execute(code) -> ExecutionResult`
-- `ExecutionResult` — `success`, `stdout`, `stderr`, `result`, `error`, `error_type`, `traceback`
+```python
+"""Jupyter kernel lifecycle and execution."""
+
+import time
+from dataclasses import dataclass, field
+from typing import Optional, Any
+
+from jupyter_client.manager import KernelManager as JupyterKM
+from nbclient.exceptions import CellExecutionError
+
+
+@dataclass
+class ExecutionResult:
+    """Result of executing code in a kernel."""
+    success: bool
+    stdout: str = ""
+    stderr: str = ""
+    result: Optional[Any] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+    traceback: list[str] = field(default_factory=list)
+    execution_time: float = 0.0
+
+
+class DasaKernelManager:
+    """Start, execute, restart, interrupt Jupyter kernels."""
+
+    def __init__(self):
+        self._km = None
+        self._kc = None
+
+    def start(self, kernel_name: str = "python3") -> None:
+        self._km = JupyterKM(kernel_name=kernel_name)
+        self._km.start_kernel()
+        self._kc = self._km.client()
+        self._kc.start_channels()
+        self._kc.wait_for_ready(timeout=30)
+
+    def shutdown(self) -> None:
+        if self._kc:
+            self._kc.stop_channels()
+        if self._km:
+            self._km.shutdown_kernel(now=True)
+
+    def restart(self) -> None:
+        if self._km:
+            self._km.restart_kernel()
+            self._kc.wait_for_ready(timeout=30)
+
+    def interrupt(self) -> None:
+        if self._km:
+            self._km.interrupt_kernel()
+
+    def execute(self, code: str, timeout: int = 300) -> ExecutionResult:
+        start = time.time()
+        msg_id = self._kc.execute(code)
+
+        stdout_parts = []
+        stderr_parts = []
+        result_value = None
+        error = None
+        error_type = None
+        tb = []
+
+        while True:
+            try:
+                msg = self._kc.get_iopub_msg(timeout=timeout)
+            except Exception:
+                return ExecutionResult(
+                    success=False,
+                    error="Timeout waiting for kernel response",
+                    execution_time=time.time() - start,
+                )
+
+            if msg["parent_header"].get("msg_id") != msg_id:
+                continue
+
+            msg_type = msg["msg_type"]
+            content = msg["content"]
+
+            if msg_type == "stream":
+                if content["name"] == "stdout":
+                    stdout_parts.append(content["text"])
+                elif content["name"] == "stderr":
+                    stderr_parts.append(content["text"])
+            elif msg_type in ("execute_result", "display_data"):
+                result_value = content.get("data", {}).get("text/plain", "")
+            elif msg_type == "error":
+                error_type = content.get("ename", "")
+                error = content.get("evalue", "")
+                tb = content.get("traceback", [])
+            elif msg_type == "status" and content.get("execution_state") == "idle":
+                break
+
+        elapsed = time.time() - start
+        success = error is None
+
+        return ExecutionResult(
+            success=success,
+            stdout="".join(stdout_parts),
+            stderr="".join(stderr_parts),
+            result=result_value,
+            error=error,
+            error_type=error_type,
+            traceback=tb,
+            execution_time=elapsed,
+        )
+
+    @property
+    def is_alive(self) -> bool:
+        return self._km is not None and self._km.is_alive()
+```
 
 ---
 
 ### 1.6 AST Parser
 
-See `legacy_docs/sprints/SPRINT-01.md` for full implementation. Key function:
+#### `src/dasa/analysis/parser.py`
 
-- `parse_cell(source) -> CellAnalysis` — extracts definitions, references, imports, functions, classes
+```python
+"""AST-based variable extraction from Python code."""
+
+import ast
+from dataclasses import dataclass, field
+
+
+@dataclass
+class CellAnalysis:
+    """Result of analyzing a cell's source code."""
+    definitions: set[str] = field(default_factory=set)
+    references: set[str] = field(default_factory=set)
+    imports: set[str] = field(default_factory=set)
+    functions: set[str] = field(default_factory=set)
+    classes: set[str] = field(default_factory=set)
+
+
+def parse_cell(source: str) -> CellAnalysis:
+    """Parse cell source and extract variable info."""
+    # Filter out magic commands and shell commands
+    lines = []
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("%", "!", "?")):
+            continue
+        lines.append(line)
+    clean_source = "\n".join(lines)
+
+    analysis = CellAnalysis()
+
+    try:
+        tree = ast.parse(clean_source)
+    except SyntaxError:
+        return analysis
+
+    _extract_definitions(tree, analysis)
+    _extract_references(tree, analysis)
+
+    # References that are also definitions are local
+    # Keep only external references
+    analysis.references -= analysis.definitions
+    analysis.references -= analysis.imports
+
+    return analysis
+```
+
+Handles: assignments, augmented assignments, tuple unpacking, for-loop targets, imports, function/class definitions, comprehension variables, walrus operator.
 
 ---
 

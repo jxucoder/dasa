@@ -1,0 +1,14 @@
+{
+  "id": "SR-02",
+  "category": "state_recovery",
+  "name": "Fix Stale Outputs",
+  "prompt": "This notebook has stale outputs because cells were executed out of order. Clear all outputs and re-execute the notebook in the correct top-to-bottom order so that all outputs reflect the current code.",
+  "notebook": "messy.ipynb",
+  "setup": {
+    "description": "Notebook with outputs from a previous out-of-order execution. The outputs do not match what would be produced by running cells sequentially."
+  },
+  "success_criteria": {
+    "type": "notebook_validates"
+  },
+  "difficulty": "medium"
+}

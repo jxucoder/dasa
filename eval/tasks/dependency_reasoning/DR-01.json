@@ -1,0 +1,15 @@
+{
+  "id": "DR-01",
+  "category": "dependency_reasoning",
+  "name": "Identify Affected Cells",
+  "prompt": "If cell 1 (data loading) in this notebook were modified to load a different dataset, which downstream cells would be affected and need to be re-executed? List all affected cell indices.",
+  "notebook": "complex.ipynb",
+  "setup": {
+    "description": "Complex ML notebook with chained dependencies. Cell 1 loads data, subsequent cells do feature engineering, train/test split, model training, evaluation, and feature importance display."
+  },
+  "success_criteria": {
+    "type": "contains_all",
+    "values": ["2", "3", "4", "5", "6"]
+  },
+  "difficulty": "medium"
+}

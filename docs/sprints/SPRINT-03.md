@@ -93,7 +93,7 @@ Available columns: user_id, age, score, region, revenue, cost
 Suggestion: Did you mean 'revenue'?
 ```
 
-See `legacy_docs/sprints/SPRINT-03.md` for full `run.py` and `replay.py` implementation.
+See `src/dasa/cli/run.py` for the full implementation.
 
 ---
 

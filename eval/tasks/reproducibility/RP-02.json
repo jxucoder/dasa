@@ -1,0 +1,15 @@
+{
+  "id": "RP-02",
+  "category": "reproducibility",
+  "name": "Fix Path Issue",
+  "prompt": "Cell 1 of this notebook uses a hardcoded absolute path that only works on one specific machine. Fix the path so that the notebook can load the sales data using a relative path that works from the notebooks directory.",
+  "notebook": "unreproducible.ipynb",
+  "setup": {
+    "description": "Notebook with hardcoded path '/Users/someone/data/sales.csv' in cell 1. Should be changed to a relative path like '../data/sales.csv'."
+  },
+  "success_criteria": {
+    "type": "cell_executes",
+    "cell": 1
+  },
+  "difficulty": "easy"
+}

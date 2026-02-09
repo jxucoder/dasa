@@ -97,7 +97,7 @@ dasa/
 │   ├── PLAN.md             # Sprint roadmap
 │   ├── EVAL.md             # Evaluation framework
 │   └── sprints/            # Sprint details (00-05)
-└── legacy_docs/            # Old docs (reference only)
+└── pyproject.toml
 ```
 
 ## Development Workflow
@@ -106,7 +106,7 @@ dasa/
 2. **Session foundation**: Sprint 1 sets up `.dasa/` session. All subsequent tools build on it.
 3. **4 commands, not 16**: Focus on `profile`, `check`, `run`, `context`. Don't build cell manipulation — agents can already edit JSON.
 4. **Auto-populate session**: Every tool should automatically update `.dasa/` (cache profiles, log results). No manual maintenance.
-5. **Reference legacy docs**: Detailed code examples for adapters, kernel, parser, profiler are in `legacy_docs/sprints/`. Use them as implementation reference.
+5. **Reference sprint docs**: Detailed code examples for adapters, kernel, parser, profiler are in `docs/sprints/`. Use them as implementation reference.
 
 ## Sprint Overview
 

@@ -1,0 +1,15 @@
+{
+  "id": "BF-02",
+  "category": "bug_fixing",
+  "name": "Fix NameError in Cell 3",
+  "prompt": "Cell 3 of this notebook raises a NameError because 'train_model' is not defined. Fix the code by defining a proper model training pipeline using scikit-learn or another appropriate library, so that the cell executes without error.",
+  "notebook": "broken.ipynb",
+  "setup": {
+    "description": "Notebook with a NameError in cell 3. The function 'train_model' and variables 'X', 'y' are not defined. The agent must create appropriate training code."
+  },
+  "success_criteria": {
+    "type": "cell_executes",
+    "cell": 3
+  },
+  "difficulty": "medium"
+}

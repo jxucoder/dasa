@@ -1,0 +1,15 @@
+{
+  "id": "VZ-01",
+  "category": "visualization",
+  "name": "Add Bar Chart of Sales by Region",
+  "prompt": "Add a new cell to this notebook that creates a bar chart showing total revenue by region. The chart should have labeled axes and a title.",
+  "notebook": "clean.ipynb",
+  "setup": {
+    "description": "Clean notebook with sales data loaded and grouped by region. Agent must add a new visualization cell."
+  },
+  "success_criteria": {
+    "type": "cell_executes",
+    "cell": "new"
+  },
+  "difficulty": "easy"
+}
