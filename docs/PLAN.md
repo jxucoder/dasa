@@ -32,6 +32,7 @@ An open source toolkit that gives coding agents the specialized capabilities the
 | **3** | [Hands + Memory](sprints/SPRINT-03.md) | 3-4 days | MVP Complete | `dasa run`, `dasa context` |
 | **4** | [Multi-Agent](sprints/SPRINT-04.md) | 3-4 days | Enhancement | Agent roles, hooks, background execution |
 | **5** | [Extensions](sprints/SPRINT-05.md) | 3-4 days | Stretch | MCP server, Marimo adapter, replay |
+| **6** | [Reliability](sprints/SPRINT-06.md) | 3-4 days | Hardening | State sync, error handling, edge cases |
 
 See [sprints/README.md](sprints/README.md) for detailed sprint overview and dependencies.
 

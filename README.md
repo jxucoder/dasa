@@ -154,33 +154,184 @@ The `.dasa/` directory accumulates project knowledge automatically:
 
 Tools auto-populate it: `profile` caches results, `run` logs outcomes, `check` records findings. Any agent reads `dasa context` to get full project state.
 
-## For Coding Agents
+---
 
-### Agent Skill
+## Using DASA with Cursor
 
-The agent skill teaches agents notebook best practices:
+### 1. Install DASA in your project
 
 ```bash
-# For Claude Code
-cp skills/notebook/SKILL.md .claude/skills/notebook/SKILL.md
-
-# For Cursor
-cp skills/notebook/SKILL.md .cursor/skills/notebook.md
+pip install dasa
 ```
 
-### Agent Workflow
+Or with `uv`:
 
-1. **Start**: `dasa context` — read project state
-2. **Before data code**: `dasa profile --var df` — see exact columns
-3. **Before editing cells**: `dasa check` — understand dependencies
-4. **Debug errors**: `dasa run --cell N` — rich error context
-5. **End of session**: `dasa context --log "..."` — record progress
+```bash
+uv add dasa
+```
+
+### 2. Add the Agent Skill
+
+Copy the DASA skill into your Cursor rules so the agent knows when and how to use DASA tools:
+
+```bash
+# Create the rules directory if it doesn't exist
+mkdir -p .cursor/rules
+
+# Copy the skill
+cp skills/notebook/SKILL.md .cursor/rules/dasa-notebook.md
+```
+
+Alternatively, add DASA to your project's `AGENTS.md`:
+
+```markdown
+## Notebook Work
+
+When working with .ipynb files, use DASA tools:
+
+1. `dasa context` — read project state before starting
+2. `dasa profile notebook.ipynb --var df` — see data before writing code
+3. `dasa check notebook.ipynb` — check health before editing cells
+4. `dasa run notebook.ipynb --cell N` — execute with rich error context
+5. `dasa context --log "..."` — record progress when done
+```
+
+### 3. How the agent uses it
+
+Once the skill is installed, the Cursor agent will automatically:
+
+- Run `dasa context` at the start of each session to pick up where you left off
+- Run `dasa profile --var df` before writing code that uses DataFrames, so it uses the correct column names
+- Run `dasa check` before modifying cells to understand dependencies
+- Run `dasa run --cell N` to test changes with rich error context ("Did you mean 'revenue'?")
+- Run `dasa context --log "..."` to record decisions for the next session
+
+### Example conversation
+
+```
+You: Fix the error in cell 8 of analysis.ipynb
+
+Agent: (runs dasa context → reads project state)
+Agent: (runs dasa check analysis.ipynb → sees cell 8 uses undefined 'results')
+Agent: (runs dasa run analysis.ipynb --cell 8 → gets NameError with available variables)
+Agent: (fixes the code, re-runs → success)
+Agent: (runs dasa context --log "Fixed cell 8: added results aggregation")
+```
+
+---
+
+## Using DASA with Claude Code
+
+### 1. Install DASA
+
+```bash
+pip install dasa
+```
+
+### 2. Add the Agent Skill
+
+```bash
+# Create the skills directory
+mkdir -p .claude/skills/notebook
+
+# Copy the skill
+cp skills/notebook/SKILL.md .claude/skills/notebook/SKILL.md
+```
+
+Or add to your `CLAUDE.md`:
+
+```markdown
+## Notebook Work
+
+When working with .ipynb files, always use DASA tools:
+
+- `dasa context` — read project state at start
+- `dasa profile notebook.ipynb --var df` — see data before writing code
+- `dasa check notebook.ipynb` — understand dependencies before editing
+- `dasa run notebook.ipynb --cell N` — execute with rich error context
+- `dasa context --log "..."` — record progress at end
+```
+
+### 3. Multi-conversation workflow
+
+DASA's context system is designed for Claude Code's conversation model. Context persists in `.dasa/context.yaml` across separate conversations:
+
+```
+Conversation 1 (exploration):
+  Agent: dasa context                    → no context yet
+  Agent: dasa profile notebook.ipynb     → sees data
+  Agent: dasa check notebook.ipynb       → sees state issues
+  Agent: dasa context --set-goal "Predict churn"
+  Agent: dasa context --log "Profiled data, 50k rows, nulls in age"
+
+Conversation 2 (implementation):
+  Agent: dasa context                    → reads goal, profiles, previous log
+  Agent: writes code using correct column names (from cached profile)
+  Agent: dasa run --cell 5               → executes and verifies
+  Agent: dasa context --log "Trained LR model, 0.84 AUC"
+
+Conversation 3 (iteration):
+  Agent: dasa context                    → sees full history
+  Agent: knows what was tried, what worked, what to do next
+```
+
+---
+
+## Using DASA with Any Agent
+
+DASA is CLI-first — any agent that can run bash commands can use it. The workflow is the same:
+
+| Step | Command | Purpose |
+|------|---------|---------|
+| Start | `dasa context` | Read project state |
+| Before data code | `dasa profile --var df` | See exact columns, types, stats |
+| Before editing | `dasa check notebook.ipynb` | Understand dependencies |
+| Debug errors | `dasa run --cell N` | Rich error context |
+| End of session | `dasa context --log "..."` | Record progress |
+
+### Supported agents
+
+| Agent | Skill Location | Notes |
+|-------|---------------|-------|
+| **Cursor** | `.cursor/rules/dasa-notebook.md` | Add as workspace rule |
+| **Claude Code** | `.claude/skills/notebook/SKILL.md` | Add as skill |
+| **OpenCode** | Reference in system prompt | Works via bash tool |
+| **Codex** | Reference in instructions | Works via bash tool |
+| **Aider** | Reference in `.aider.conf.yml` | Works via shell commands |
+| **Any MCP client** | `dasa mcp-serve` | Direct tool integration (experimental) |
+
+---
+
+## Try It
+
+An example workspace is included to try all four commands:
+
+```bash
+cd example
+
+# Check notebook health (finds bugs + dependencies)
+dasa check analysis.ipynb
+
+# Profile the data (no kernel needed)
+dasa profile --file data/sales.csv
+
+# Run cells and see rich error context
+dasa run analysis.ipynb --cell 1
+dasa run analysis.ipynb --cell 4    # → KeyError, "Did you mean 'revenue'?"
+
+# Set up project memory
+dasa context --set-goal "Analyze sales"
+dasa context --log "Found revenue_usd bug, should be revenue"
+dasa context                         # Read it back
+```
+
+See `example/README.md` for a full walkthrough.
 
 ## Documentation
 
 - [Design](docs/DESIGN.md) — Vision, problem, solution, multi-agent architecture
 - [Architecture](docs/ARCHITECTURE.md) — Technical components, session system, package structure
-- [Plan](docs/PLAN.md) — Sprint roadmap (6 sprints, MVP = Sprints 0-3)
+- [Plan](docs/PLAN.md) — Sprint roadmap (7 sprints, MVP = Sprints 0-3)
 - [Evaluation](docs/EVAL.md) — Evaluation framework, task categories, metrics
 - [Sprints](docs/sprints/README.md) — Detailed sprint breakdowns
 
@@ -188,7 +339,7 @@ cp skills/notebook/SKILL.md .cursor/skills/notebook.md
 
 - **Jupyter Notebooks** (`.ipynb`) — Full support
 - **Google Colab** (`.ipynb`) — Full support
-- **Marimo** (`.py`) — Planned (Sprint 5)
+- **Marimo** (`.py`) — Read-only support
 
 ## License
 

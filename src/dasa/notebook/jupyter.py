@@ -20,8 +20,13 @@ class JupyterAdapter(NotebookAdapter):
     def load(self, path: str) -> None:
         """Load notebook from path."""
         self._path = Path(path)
-        with open(self._path) as f:
-            self._nb = nbformat.read(f, as_version=4)
+        if not self._path.exists():
+            raise FileNotFoundError(f"Notebook not found: {path}")
+        try:
+            with open(self._path) as f:
+                self._nb = nbformat.read(f, as_version=4)
+        except Exception as e:
+            raise ValueError(f"Failed to read notebook {path}: {e}") from e
 
     def save(self, path: str | None = None) -> None:
         """Save notebook to path."""
@@ -51,6 +56,11 @@ class JupyterAdapter(NotebookAdapter):
         """Get cell by index."""
         if self._nb is None:
             raise ValueError("No notebook loaded")
+        if index < 0 or index >= len(self._nb.cells):
+            raise IndexError(
+                f"Cell index {index} out of range "
+                f"(notebook has {len(self._nb.cells)} cells, indices 0-{len(self._nb.cells) - 1})"
+            )
         cell = self._nb.cells[index]
         return Cell(
             index=index,
@@ -64,6 +74,11 @@ class JupyterAdapter(NotebookAdapter):
         """Update cell source code."""
         if self._nb is None:
             raise ValueError("No notebook loaded")
+        if index < 0 or index >= len(self._nb.cells):
+            raise IndexError(
+                f"Cell index {index} out of range "
+                f"(notebook has {len(self._nb.cells)} cells)"
+            )
         self._nb.cells[index].source = source
 
     @property

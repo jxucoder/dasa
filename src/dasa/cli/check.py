@@ -24,9 +24,9 @@ def check(
     """Check notebook health: state, dependencies, staleness."""
     adapter = get_adapter(notebook)
 
-    # Run all analyses
+    # Run all analyses — pass notebook path so StateAnalyzer can consult state.json
     state_analyzer = StateAnalyzer()
-    state_analysis = state_analyzer.analyze(adapter)
+    state_analysis = state_analyzer.analyze(adapter, notebook_path=notebook)
 
     dep_analyzer = DependencyAnalyzer()
     dep_graph = dep_analyzer.build_graph(adapter)
@@ -54,7 +54,7 @@ def check(
     console.print(f"\n[bold]Notebook:[/bold] {notebook} ({len(adapter.cells)} cells)\n")
 
     # State section
-    _print_state_section(state_analysis)
+    _print_state_section(state_analysis, adapter)
 
     # Dependencies section
     _print_deps_section(dep_graph, cell)
@@ -75,6 +75,13 @@ def check(
         raise typer.Exit(1)
 
 
+def _should_replay(cell, state_tracker: StateTracker, notebook: str) -> bool:
+    """Check if a cell should be replayed to restore kernel state."""
+    if cell.execution_count is not None:
+        return True
+    return state_tracker.was_executed_current(notebook, cell.index, cell.source)
+
+
 def _auto_fix(notebook: str, adapter, state_analysis, format: str) -> None:
     """Auto-fix by re-running stale and never-executed cells."""
     code_cells = adapter.code_cells
@@ -83,9 +90,14 @@ def _auto_fix(notebook: str, adapter, state_analysis, format: str) -> None:
     tracker = StateTracker()
     cells_to_fix = []
     for c in code_cells:
-        if c.execution_count is None:
+        executed_in_notebook = c.execution_count is not None
+        executed_via_dasa = tracker.was_executed_current(notebook, c.index, c.source)
+
+        if not executed_in_notebook and not executed_via_dasa:
+            # Never executed anywhere
             cells_to_fix.append(c)
-        elif tracker.is_stale(notebook, c.index, c.source):
+        elif tracker.was_executed(notebook, c.index) and tracker.is_stale(notebook, c.index, c.source):
+            # Executed via dasa but code changed
             cells_to_fix.append(c)
 
     if not cells_to_fix:
@@ -96,15 +108,21 @@ def _auto_fix(notebook: str, adapter, state_analysis, format: str) -> None:
         console.print(f"\n[bold]Fixing {len(cells_to_fix)} cells...[/bold]\n")
 
     kernel = DasaKernelManager()
+    try:
+        kernel.start()
+    except Exception as e:
+        console.print(f"[red]Error: Failed to start kernel: {e}[/red]")
+        console.print("[dim]Is ipykernel installed? Try: pip install ipykernel[/dim]")
+        raise typer.Exit(1)
+
     results = []
 
     try:
-        kernel.start()
-
         # Replay all cells in order to build up state
+        # Checks BOTH execution_count AND state.json
         first_fix = min(c.index for c in cells_to_fix)
         for c in code_cells:
-            if c.index < first_fix and c.execution_count is not None:
+            if c.index < first_fix and _should_replay(c, tracker, notebook):
                 kernel.execute(c.source, timeout=300)
 
         # Execute fixable cells
@@ -151,7 +169,7 @@ def _auto_fix(notebook: str, adapter, state_analysis, format: str) -> None:
         raise typer.Exit(1)
 
 
-def _print_state_section(analysis) -> None:
+def _print_state_section(analysis, adapter=None) -> None:
     """Print state analysis section."""
     console.print("[bold]State:[/bold]")
 
@@ -166,9 +184,15 @@ def _print_state_section(analysis) -> None:
         cell_str = f"Cell {issue.cell_index}" if issue.cell_index >= 0 else "Notebook"
         console.print(f"  [yellow]![/yellow] {cell_str}: {issue.message}")
 
-    ok_count = max(0, len(analysis.correct_order) - len(errors) - len(warnings))
+    # Count OK cells: code cells minus those with issues
+    code_cell_count = len(adapter.code_cells) if adapter else 0
+    issue_cell_indices = {i.cell_index for i in analysis.issues if i.cell_index >= 0}
+    ok_count = code_cell_count - len(issue_cell_indices)
     if ok_count > 0:
         console.print(f"  [green]OK[/green] {ok_count} cells consistent")
+
+    if not errors and not warnings:
+        console.print("  [green]OK[/green] All cells consistent")
 
     console.print()
 
@@ -198,6 +222,9 @@ def _print_deps_section(graph, target_cell=None) -> None:
         idx for idx, node in graph.nodes.items()
         if not node.downstream and node.references  # has refs but nothing depends on it
     ]
+    if dead_cells:
+        dead_str = ", ".join(f"Cell {d}" for d in dead_cells)
+        console.print(f"  [dim]Dead code (no downstream dependents): {dead_str}[/dim]")
 
     console.print()
 

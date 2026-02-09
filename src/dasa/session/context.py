@@ -1,5 +1,8 @@
 """Project context management (.dasa/context.yaml)."""
 
+import os
+import sys
+import tempfile
 from pathlib import Path
 from typing import Optional
 import yaml
@@ -34,12 +37,19 @@ class ContextManager:
             (self.dasa_dir / "log").touch()
 
     def read(self) -> ProjectContext:
-        """Read project context."""
+        """Read project context. Returns empty context on missing or corrupted files."""
         if not self.context_path.exists():
             return ProjectContext()
 
-        with open(self.context_path) as f:
-            data = yaml.safe_load(f) or {}
+        try:
+            with open(self.context_path) as f:
+                data = yaml.safe_load(f) or {}
+        except (yaml.YAMLError, OSError) as e:
+            print(
+                f"Warning: corrupted {self.context_path}, resetting: {e}",
+                file=sys.stderr,
+            )
+            return ProjectContext()
 
         project = data.get("project", {})
         return ProjectContext(
@@ -53,7 +63,7 @@ class ContextManager:
         )
 
     def write(self, context: ProjectContext) -> None:
-        """Write project context."""
+        """Write project context atomically."""
         self.ensure_session()
 
         data = {
@@ -71,8 +81,20 @@ class ContextManager:
         # Remove None values from project
         data["project"] = {k: v for k, v in data["project"].items() if v is not None}
 
-        with open(self.context_path, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        fd, tmp_path = tempfile.mkstemp(
+            dir=self.dasa_dir,
+            suffix=".tmp",
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            os.replace(tmp_path, self.context_path)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def update(self, **kwargs) -> ProjectContext:
         """Update specific fields in context."""

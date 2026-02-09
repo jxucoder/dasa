@@ -15,6 +15,18 @@ from dasa.session.state import StateTracker
 console = Console()
 
 
+def _should_replay(cell, state_tracker: StateTracker, notebook: str) -> bool:
+    """Check if a cell should be replayed to restore kernel state.
+
+    A cell should be replayed if it was executed either:
+    - In Jupyter/Colab (execution_count is set in .ipynb), OR
+    - Via dasa run (tracked in state.json and code hasn't changed)
+    """
+    if cell.execution_count is not None:
+        return True
+    return state_tracker.was_executed_current(notebook, cell.index, cell.source)
+
+
 def run(
     notebook: str = typer.Argument(..., help="Path to notebook"),
     cell: int = typer.Option(None, "--cell", "-c", help="Run a single cell"),
@@ -41,18 +53,24 @@ def run(
     dep_analyzer = DependencyAnalyzer()
     dep_graph = dep_analyzer.build_graph(adapter)
 
-    kernel = DasaKernelManager()
-    log = SessionLog()
     state_tracker = StateTracker()
+    log = SessionLog()
     results = []
 
+    kernel = DasaKernelManager()
     try:
         kernel.start()
+    except Exception as e:
+        console.print(f"[red]Error: Failed to start kernel: {e}[/red]")
+        console.print("[dim]Is ipykernel installed? Try: pip install ipykernel[/dim]")
+        raise typer.Exit(1)
 
+    try:
         # Replay cells before the first target cell to restore state
+        # Checks BOTH notebook execution_count AND state.json
         first_target = min(c.index for c in cells_to_run)
         for c in code_cells:
-            if c.index < first_target and c.execution_count is not None:
+            if c.index < first_target and _should_replay(c, state_tracker, notebook):
                 kernel.execute(c.source, timeout=timeout)
 
         # Execute target cells
@@ -169,7 +187,14 @@ def run(
 def _resolve_cells(code_cells, cell, from_cell, to_cell, all_cells, stale_only, notebook):
     """Determine which cells to execute."""
     if cell is not None:
-        return [c for c in code_cells if c.index == cell]
+        matches = [c for c in code_cells if c.index == cell]
+        if not matches:
+            total = max((c.index for c in code_cells), default=0)
+            console.print(
+                f"[red]Error: Cell {cell} not found "
+                f"(notebook has cells 0-{total})[/red]"
+            )
+        return matches
 
     if all_cells:
         return code_cells

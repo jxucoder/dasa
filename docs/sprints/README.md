@@ -1,6 +1,6 @@
 # DASA Sprints
 
-Implementation is divided into 6 sprints, starting with evaluation infrastructure (Sprint 0) to enable test-driven development.
+Implementation is divided into 7 sprints, starting with evaluation infrastructure (Sprint 0) to enable test-driven development.
 
 ## Sprint Overview
 
@@ -12,6 +12,7 @@ Implementation is divided into 6 sprints, starting with evaluation infrastructur
 | **3** | [Hands + Memory](SPRINT-03.md) | 3-4 days | MVP Complete | `dasa run`, `dasa context` |
 | **4** | [Multi-Agent](SPRINT-04.md) | 3-4 days | Enhancement | Agent roles, hooks, background execution |
 | **5** | [Extensions](SPRINT-05.md) | 3-4 days | Stretch | MCP server, Marimo adapter, replay |
+| **6** | [Reliability](SPRINT-06.md) | 3-4 days | Hardening | State sync, error handling, edge cases |
 
 ## MVP Definition
 
@@ -70,6 +71,13 @@ Sprint 5: Extensions  ──── Stretch
     ├── MCP server
     ├── Marimo adapter
     └── Replay / reproducibility verification
+    │
+    ▼
+Sprint 6: Reliability  ──── Hardening
+    │
+    ├── Unified execution state (state.json ↔ check/profile/run)
+    ├── Atomic writes, robust file I/O
+    └── Edge case hardening, path normalization
 ```
 
 ## Eval Checkpoints
@@ -80,6 +88,7 @@ Sprint 5: Extensions  ──── Stretch
 | Eyes | 2 | ~56% completion (+13 pts) |
 | MVP Complete | 3 | ~70% completion (+27 pts) |
 | Multi-Agent | 4 | ~78% completion (+35 pts) |
+| Reliability | 6 | Eliminates false warnings, cross-command integration works |
 
 ## Sprint Dependencies
 

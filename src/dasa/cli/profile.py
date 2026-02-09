@@ -12,8 +12,21 @@ from dasa.notebook.kernel import DasaKernelManager
 from dasa.analysis.profiler import Profiler, profile_csv
 from dasa.session.log import SessionLog
 from dasa.session.profiles import ProfileCache
+from dasa.session.state import StateTracker
 
 console = Console()
+
+
+def _should_replay(cell, state_tracker: StateTracker, notebook: str) -> bool:
+    """Check if a cell should be replayed to restore kernel state.
+
+    A cell should be replayed if it was executed either:
+    - In Jupyter/Colab (execution_count is set in .ipynb), OR
+    - Via dasa run (tracked in state.json and code hasn't changed)
+    """
+    if cell.execution_count is not None:
+        return True
+    return state_tracker.was_executed_current(notebook, cell.index, cell.source)
 
 
 def profile(
@@ -59,15 +72,22 @@ def profile(
         raise typer.Exit(1)
 
     adapter = get_adapter(notebook)
+    state_tracker = StateTracker()
 
     # Start kernel and replay executed cells
     kernel = DasaKernelManager()
     try:
         kernel.start()
+    except Exception as e:
+        console.print(f"[red]Error: Failed to start kernel: {e}[/red]")
+        console.print("[dim]Is ipykernel installed? Try: pip install ipykernel[/dim]")
+        raise typer.Exit(1)
 
+    try:
         # Replay previously-executed cells to restore state
+        # Checks BOTH notebook execution_count AND state.json
         for cell in adapter.code_cells:
-            if cell.execution_count is not None:
+            if _should_replay(cell, state_tracker, notebook):
                 result = kernel.execute(cell.source, timeout=60)
                 if not result.success:
                     console.print(
